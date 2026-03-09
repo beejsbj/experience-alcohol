@@ -10,41 +10,30 @@ export const BAC_CONSTANTS = {
   },
 };
 
-// Drink type definitions with standardised measurements
-export const DRINK_TYPES = {
-  beer: { name: "Beer (5%)", oz: 12, alcoholPercentage: 0.05 },
-  lightBeer: { name: "Light Beer (4%)", oz: 12, alcoholPercentage: 0.04 },
-  craftBeer: { name: "Craft Beer (7%)", oz: 12, alcoholPercentage: 0.07 },
-  wine: { name: "Wine (12%)", oz: 5, alcoholPercentage: 0.12 },
-  spirits: { name: "Spirits (40%)", oz: 1.5, alcoholPercentage: 0.4 },
-  cocktail: { name: "Cocktail (Mixed)", oz: 8, alcoholPercentage: 0.15 },
-};
-
-// Drink definitions with icons
 export const DRINKS = [
   {
     type: "Beer",
     icon: "/icons/beer.svg",
-    alcoholContent: DRINK_TYPES.beer.alcoholPercentage,
-    volume: DRINK_TYPES.beer.oz,
+    alcoholContent: 0.05,
+    volume: 12,
   },
   {
     type: "Wine",
     icon: "/icons/wine.svg",
-    alcoholContent: DRINK_TYPES.wine.alcoholPercentage,
-    volume: DRINK_TYPES.wine.oz,
+    alcoholContent: 0.12,
+    volume: 5,
   },
   {
     type: "Cocktail",
     icon: "/icons/cocktail.svg",
-    alcoholContent: DRINK_TYPES.cocktail.alcoholPercentage,
-    volume: DRINK_TYPES.cocktail.oz,
+    alcoholContent: 0.15,
+    volume: 8,
   },
   {
     type: "Shot",
     icon: "/icons/shot.svg",
-    alcoholContent: DRINK_TYPES.spirits.alcoholPercentage,
-    volume: DRINK_TYPES.spirits.oz,
+    alcoholContent: 0.4,
+    volume: 1.5,
   },
 ];
 
@@ -116,16 +105,17 @@ export const FEELING_STATES = [
   },
 ];
 
+export const MAINTAINABLE_STATES = FEELING_STATES.filter((state) =>
+  ["Barely Noticeable", "Pleasantly Relaxed", "Definitely Tipsy"].includes(
+    state.state
+  )
+);
+
 // Default values for new users
 export const DEFAULT_PERSON = {
   name: "",
   weight: 78,
   gender: "male",
   color: "#8884d8",
-};
-
-// Maintenance mode thresholds
-export const MAINTENANCE = {
-  UPPER_THRESHOLD: 1.1, // 10% above target
-  LOWER_THRESHOLD: 0.9, // 10% below target
+  maintainTargetState: null,
 };

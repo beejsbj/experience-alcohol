@@ -1,15 +1,14 @@
-# Alcohol Experience Calculator
+# Experience Alcohol
 
-An interactive Vue.js application that helps users understand and visualize Blood Alcohol Content (BAC) levels based on various factors including weight, gender, and drink type.
+A focused Vue app for live drink tracking. Log drinks for one or more people, keep an educational BAC estimate visible, and surface likely experience states as the session unfolds.
 
-## Features
+## What It Does
 
-- Calculate BAC based on personal parameters
-- Interactive chart showing BAC progression
-- Compare effects across different weights or drink types
-- Detailed breakdown of alcohol effects at different BAC levels
-- Maintenance drink calculations
-- Responsive design
+- Add and edit people in a live session
+- Log standard drinks in real time
+- Estimate current BAC from drink history
+- Show likely experience-state guidance inline
+- Keep the interface mobile-first and fast
 
 ## Prerequisites
 
@@ -41,7 +40,7 @@ npm run dev
 yarn dev
 ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+4. Open `http://localhost:5173`
 
 ## Building for Production
 
@@ -55,16 +54,13 @@ yarn build
 
 The built files will be in the `dist` directory.
 
-## Technologies Used
+## Product Direction
 
-- Vue 3 (Composition API)
-- ECharts for Vue
-- Tailwind CSS
-- Vite
+This repo is intentionally scoped to one job: a live drink tracker. Older simulator-style features have been removed so the UI and codebase stay focused.
 
 ## Important Notes
 
-This calculator is for educational purposes only. Many factors can affect how alcohol impacts an individual, including:
+This tracker is for educational purposes only. Many factors can affect how alcohol impacts an individual, including:
 
 - Food consumption
 - Hydration levels

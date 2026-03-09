@@ -1,50 +1,86 @@
 // no vue refs needed here
 import { useAlcoholStore } from "../stores/alcohol";
-import { FEELING_STATES, MAINTENANCE } from "../constants";
+import { FEELING_STATES, MAINTAINABLE_STATES } from "../constants";
 import { usedrinks } from "./usedrinks";
-import {
-  calculateRelativePace,
-  calculateDrinksUntilExtra,
-  calculateDrinksUntilSkip,
-} from "../utils/bac";
 
 export const useperson = () => {
   const store = useAlcoholStore();
   const { getPersonBAC } = usedrinks();
 
-  // Get current feeling state for a person
-  const getCurrentFeelingState = (personId) => {
+  const getCurrentFeelingDetails = (personId) => {
     const bac = getPersonBAC(personId);
-    const state = FEELING_STATES.find(
-      (state) => bac >= state.minBAC && bac <= state.maxBAC
+
+    return (
+      [...FEELING_STATES]
+        .reverse()
+        .find((state) => bac >= state.minBAC) || FEELING_STATES[0]
     );
-    return state ? state.state : "Sober";
   };
 
-  // Get recommendation for a person
+  const getCurrentFeelingState = (personId) => {
+    return getCurrentFeelingDetails(personId).state;
+  };
+
+  const getMaintainOptions = () => MAINTAINABLE_STATES;
+
+  const getSuggestedMaintainDetails = (personId) => {
+    const bac = getPersonBAC(personId);
+    const currentState = getCurrentFeelingDetails(personId);
+    const matchingOption = MAINTAINABLE_STATES.find(
+      (state) => state.state === currentState.state
+    );
+
+    if (matchingOption) return matchingOption;
+    if (bac >= MAINTAINABLE_STATES[MAINTAINABLE_STATES.length - 1].minBAC) {
+      return MAINTAINABLE_STATES[MAINTAINABLE_STATES.length - 1];
+    }
+    return MAINTAINABLE_STATES[1];
+  };
+
+  const getMaintainTargetDetails = (personId) => {
+    const person = store.people.find((entry) => entry.id === personId);
+    if (!person?.maintainTargetState) return null;
+
+    return (
+      MAINTAINABLE_STATES.find(
+        (state) => state.state === person.maintainTargetState
+      ) || null
+    );
+  };
+
+  const getDisplayedMaintainDetails = (personId) => {
+    return getMaintainTargetDetails(personId) || getSuggestedMaintainDetails(personId);
+  };
+
+  const isMaintaining = (personId) => {
+    return Boolean(getMaintainTargetDetails(personId));
+  };
+
   const getRecommendation = (personId) => {
     const person = store.people.find((p) => p.id === personId);
     if (!person) return "Error loading person data";
 
     const bac = getPersonBAC(personId);
-    const currentState = FEELING_STATES.find(
-      (state) => bac >= state.minBAC && bac <= state.maxBAC
-    );
+    const currentState = getCurrentFeelingDetails(personId);
+    const maintainTarget = getMaintainTargetDetails(personId);
 
-    // If in maintenance mode, return a simplified recommendation
-    if (person.maintainBAC) {
-      if (bac > person.maintainBAC * MAINTENANCE.UPPER_THRESHOLD) {
-        return "You're above your target BAC. Take a break from drinking.";
-      } else if (bac < person.maintainBAC * MAINTENANCE.LOWER_THRESHOLD) {
-        return "You're below your target BAC. Follow the maintenance advice below.";
-      } else {
-        return "You're maintaining your target BAC level well.";
+    if (maintainTarget) {
+      if (bac === 0) {
+        return `Aiming for ${maintainTarget.state}. Start slow and reassess each round.`;
       }
+
+      if (bac < maintainTarget.minBAC) {
+        return `Below ${maintainTarget.state}. If you're still heading there, add drinks gradually.`;
+      }
+
+      if (bac > maintainTarget.maxBAC) {
+        return `Above ${maintainTarget.state}. Pause until you drift back into range.`;
+      }
+
+      return `You're around ${maintainTarget.state}. Keep the pace light to stay there.`;
     }
 
-    // Regular recommendations based on feeling states
     if (bac === 0) return "Ready to start tracking drinks";
-    if (!currentState) return "STOP drinking and drink water instead";
 
     switch (currentState.state) {
       case "Sober":
@@ -59,11 +95,29 @@ export const useperson = () => {
     }
   };
 
-  // Get BAC color class based on feeling states
+  const getMaintainStatusCopy = (personId) => {
+    const target = getMaintainTargetDetails(personId);
+    if (!target) {
+      return "Lock a target and the drink timing shifts toward holding that state.";
+    }
+
+    const bac = getPersonBAC(personId);
+
+    if (bac < target.minBAC) {
+      return `Working toward ${target.state}.`;
+    }
+
+    if (bac > target.maxBAC) {
+      return `Currently above ${target.state}.`;
+    }
+
+    return `Holding ${target.state}.`;
+  };
+
   const getBACColorClass = (bac) => {
-    const currentState = FEELING_STATES.find(
-      (state) => bac >= state.minBAC && bac <= state.maxBAC
-    );
+    const currentState =
+      [...FEELING_STATES].reverse().find((state) => bac >= state.minBAC) ||
+      FEELING_STATES[0];
 
     if (!currentState) return "text-red-600";
 
@@ -80,70 +134,18 @@ export const useperson = () => {
     }
   };
 
-  // Maintain BAC functionality
-  const setMaintainLevel = (person) => {
-    if (!person) return;
-    const currentBAC = getPersonBAC(person.id);
-    if (currentBAC > 0) {
-      store.setMaintainBAC(person.id, currentBAC);
-    }
-  };
-
-  const clearMaintainLevel = (person) => {
-    if (!person) return;
-    store.clearMaintainBAC(person.id);
-  };
-
-  // Get maintenance advice
-  const getMaintainanceAdvice = (personId) => {
-    const drinksNeeded = store.calculateDrinksToMaintain(personId);
-    if (drinksNeeded === null) return "";
-    if (drinksNeeded === 0) return "No additional drinks needed right now.";
-
-    const roundedDrinks = Math.round(drinksNeeded * 10) / 10;
-    return `To maintain your level, have ${roundedDrinks} standard drink${
-      roundedDrinks === 1 ? "" : "s"
-    } in the next hour.`;
-  };
-
-  // wrappers for UI that plug in reference person automatically
-  const getRelativePace = (person) => {
-    if (!person) return "0.0";
-    const referencePerson = store.people[0];
-    if (!referencePerson) return "0.0";
-    return calculateRelativePace(referencePerson, person).toFixed(1);
-  };
-
-  const getDrinksUntilExtra = (person) => {
-    if (!person) return "N/A";
-    const referencePerson = store.people[0];
-    const val = calculateDrinksUntilExtra(referencePerson, person);
-    return val === null ? "N/A" : val;
-  };
-
-  const getDrinksUntilSkip = (person) => {
-    if (!person) return "N/A";
-    const referencePerson = store.people[0];
-    const val = calculateDrinksUntilSkip(referencePerson, person);
-    return val === null ? "N/A" : val;
-  };
-
-  // Update person information
-  const updatePerson = (personId, updates) => {
-    if (!personId) return;
-    store.updatePerson(personId, updates);
-  };
-
   return {
+    getCurrentFeelingDetails,
     getCurrentFeelingState,
+    getMaintainOptions,
+    getSuggestedMaintainDetails,
+    getMaintainTargetDetails,
+    getDisplayedMaintainDetails,
+    getMaintainStatusCopy,
     getRecommendation,
     getBACColorClass,
-    setMaintainLevel,
-    clearMaintainLevel,
-    getMaintainanceAdvice,
-    calculateRelativePace: getRelativePace,
-    calculateDrinksUntilExtra: getDrinksUntilExtra,
-    calculateDrinksUntilSkip: getDrinksUntilSkip,
-    updatePerson,
+    isMaintaining,
+    setMaintainTarget: store.setMaintainTarget,
+    clearMaintainTarget: store.clearMaintainTarget,
   };
 };
