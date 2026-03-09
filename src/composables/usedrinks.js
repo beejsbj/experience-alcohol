@@ -1,13 +1,17 @@
 import { computed } from "vue";
 import { useAlcoholStore } from "../stores/alcohol";
 import { DRINKS } from "../constants/index";
+import { useLiveNow } from "./useLiveNow";
 import {
+  calculateCurrentBAC,
   calculateTimeUntilNextDrink,
   calculateSingleDrinkBAC,
 } from "../utils/bac";
 
 export const usedrinks = () => {
   const store = useAlcoholStore();
+  const now = useLiveNow();
+  const drinks = computed(() => [...DRINKS, ...store.customDrinks]);
 
   // Get person's drink history
   const getPersonDrinkHistory = (personId) => {
@@ -16,7 +20,14 @@ export const usedrinks = () => {
 
   // Get person's current BAC
   const getPersonBAC = (personId) => {
-    return store.liveDrinkTracking[personId]?.currentBAC || 0;
+    now.value;
+
+    const person = store.people.find((entry) => entry.id === personId);
+    const history = getPersonDrinkHistory(personId);
+
+    if (!person || !history.length) return 0;
+
+    return calculateCurrentBAC(history, person);
   };
 
   // Get drink count for a person and drink type
@@ -37,6 +48,7 @@ export const usedrinks = () => {
     if (!person) return "Error";
 
     const currentBAC = getPersonBAC(personId);
+    const maintainTargetBAC = store.getMaintainTargetBAC(personId);
 
     // Calculate BAC contribution of next drink
     const nextDrinkBAC = calculateSingleDrinkBAC(
@@ -46,22 +58,25 @@ export const usedrinks = () => {
       drink.volume
     );
 
-    // If maintaining a level
-    if (person.maintainBAC) {
+    if (maintainTargetBAC !== null) {
+      if (currentBAC < maintainTargetBAC - 0.006) {
+        return currentBAC + nextDrinkBAC > maintainTargetBAC + 0.006
+          ? "Near"
+          : "Aim";
+      }
+
       const minutes = calculateTimeUntilNextDrink(
         currentBAC,
-        person.maintainBAC,
-        nextDrinkBAC
+        nextDrinkBAC,
+        maintainTargetBAC + 0.004
       );
-
-      if (minutes <= 0) return "Drink now to maintain";
+      if (minutes <= 0) return "Hold";
       return minutes < 60
         ? `Wait ${Math.ceil(minutes)} min`
         : `Wait ${Math.ceil(minutes / 60)}h`;
     }
 
-    // Regular mode
-    const minutes = calculateTimeUntilNextDrink(currentBAC, null, nextDrinkBAC);
+    const minutes = calculateTimeUntilNextDrink(currentBAC, nextDrinkBAC);
     if (minutes <= 0) return "Ready";
     return minutes < 60
       ? `Wait ${Math.ceil(minutes)} min`
@@ -72,13 +87,25 @@ export const usedrinks = () => {
   const getNextDrinkClass = (personId, drink) => {
     const timeText = getNextDrinkTime(personId, drink);
     if (timeText === "Error") return "bg-red-100 text-red-800";
-    if (timeText === "Ready" || timeText === "Drink now to maintain") {
+    if (["Ready", "Aim", "Hold"].includes(timeText)) {
       return "bg-green-100 text-green-800";
     }
+    if (timeText === "Near") return "bg-amber-100 text-amber-800";
     if (timeText.includes("h")) {
       return "bg-red-100 text-red-800";
     }
     return "bg-yellow-100 text-yellow-800";
+  };
+
+  const getNextDrinkTintClass = (personId, drink) => {
+    const timeText = getNextDrinkTime(personId, drink);
+    if (["Ready", "Aim", "Hold"].includes(timeText)) {
+      return "border-emerald-200 bg-emerald-50/80";
+    }
+    if (timeText === "Near") {
+      return "border-amber-200 bg-amber-50/90";
+    }
+    return "border-rose-200 bg-rose-50/90";
   };
 
   // Check if any drinks have been logged
@@ -89,13 +116,14 @@ export const usedrinks = () => {
   });
 
   return {
-    drinks: DRINKS,
+    drinks,
     getPersonDrinkHistory,
     getPersonBAC,
     getDrinkCount,
     addDrink,
     getNextDrinkTime,
     getNextDrinkClass,
+    getNextDrinkTintClass,
     hasAnyDrinks,
   };
 };

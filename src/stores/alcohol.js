@@ -1,49 +1,106 @@
 import { defineStore } from "pinia";
-import { DRINK_TYPES, BAC_CONSTANTS } from "../constants";
-import { ref, computed } from "vue";
-import { calculateCurrentBAC, calculateDrinksForBAC } from "../utils/bac";
+import { DEFAULT_PERSON, MAINTAINABLE_STATES } from "../constants";
+import { ref, watch } from "vue";
+import { calculateCurrentBAC } from "../utils/bac";
+
+const PERSON_COLORS = ["#B85C38", "#2E6F70", "#8D5A97", "#A2642A", "#4D6F52"];
+const STORAGE_KEY = "experience-alcohol:fab-layout:v1";
+
+const createTrackingState = () => ({
+  drinkHistory: [],
+  currentBAC: 0,
+});
+
+const normalizeCustomDrink = (drink = {}) => ({
+  id: drink.id || `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  type: drink.type?.trim() || "Custom",
+  icon: drink.icon || null,
+  glyph: drink.glyph || (drink.type?.trim()?.charAt(0).toUpperCase() || "C"),
+  alcoholContent: Number(drink.alcoholContent) || 0.05,
+  volume: Number(drink.volume) || 12,
+});
+
+const getStorage = () => {
+  if (typeof globalThis === "undefined") return null;
+  return globalThis.localStorage ?? null;
+};
+
+const normalizeTrackingState = (tracking = {}) => ({
+  drinkHistory: Array.isArray(tracking.drinkHistory)
+    ? tracking.drinkHistory.map((drink) => ({
+        ...drink,
+        timestamp: drink.timestamp ?? new Date().toISOString(),
+      }))
+    : [],
+  currentBAC: Number(tracking.currentBAC) || 0,
+});
+
+const buildPerson = (id, person = {}) => {
+  const fallbackColor = PERSON_COLORS[(id - 1) % PERSON_COLORS.length];
+
+  return {
+    ...DEFAULT_PERSON,
+    id,
+    color: fallbackColor,
+    name: `Guest ${id}`,
+    ...person,
+    color: person.color || fallbackColor,
+    name: person.name?.trim() || `Guest ${id}`,
+    maintainTargetState: person.maintainTargetState ?? null,
+  };
+};
+
+const createDefaultState = () => ({
+  people: [buildPerson(1, { name: "You" })],
+  customDrinks: [],
+  liveDrinkTracking: {
+    1: createTrackingState(),
+  },
+});
+
+const loadState = () => {
+  const storage = getStorage();
+
+  if (!storage) return createDefaultState();
+
+  try {
+    const parsed = JSON.parse(storage.getItem(STORAGE_KEY) || "null");
+    if (!parsed || !Array.isArray(parsed.people) || !parsed.people.length) {
+      return createDefaultState();
+    }
+
+    const people = parsed.people.map((person, index) =>
+      buildPerson(Number(person.id) || index + 1, person)
+    );
+    const tracking = Object.fromEntries(
+      people.map((person) => [
+        person.id,
+        normalizeTrackingState(parsed.liveDrinkTracking?.[person.id]),
+      ])
+    );
+
+    return {
+      people,
+      customDrinks: Array.isArray(parsed.customDrinks)
+        ? parsed.customDrinks.map((drink) => normalizeCustomDrink(drink))
+        : [],
+      liveDrinkTracking: tracking,
+    };
+  } catch {
+    return createDefaultState();
+  }
+};
 
 export const useAlcoholStore = defineStore("alcohol", () => {
-  // State
-  const people = ref([
-    {
-      id: 1,
-      name: "Person 1",
-      weight: 78,
-      gender: "male",
-      drinksPerHour: 1,
-      targetBAC: 0.05,
-      color: "#8884d8", // Default color for first person
-      maintainBAC: null, // Target BAC to maintain
-      lastMaintainTime: null, // When the maintain button was last pressed
-    },
-  ]);
-  const drinkType = ref("beer");
-  const compareWeights = ref(false);
-  const compareDrinks = ref(false);
-  const timeRange = ref(6); // hours to simulate
-  const liveDrinkTracking = ref({}); // Map of personId to their drink history and current state
-  const isLive = ref(false); // Whether to use live tracking data
+  const initialState = loadState();
+  const people = ref(initialState.people);
+  const customDrinks = ref(initialState.customDrinks);
+  const liveDrinkTracking = ref(initialState.liveDrinkTracking);
 
-  // Getters
-  const recommendedDrinksForTarget = computed(() => {
-    return (person, targetBAC) => {
-      const drink = DRINK_TYPES[drinkType.value];
-      return calculateDrinksForBAC(
-        targetBAC,
-        person.weight,
-        person.gender,
-        drink.alcoholPercentage,
-        drink.oz
-      );
-    };
-  });
-
-  // Actions
-  function addPerson(person) {
+  function addPerson(person = {}) {
     const newId = Math.max(0, ...people.value.map((p) => p.id)) + 1;
-    people.value.push({ ...person, id: newId });
-    resetPersonTracking(newId);
+    people.value.push(buildPerson(newId, person));
+    liveDrinkTracking.value[newId] = createTrackingState();
   }
 
   function updatePerson(updates) {
@@ -71,23 +128,15 @@ export const useAlcoholStore = defineStore("alcohol", () => {
   }
 
   function resetPersonTracking(personId) {
-    liveDrinkTracking.value[personId] = {
-      drinkHistory: [],
-      currentBAC: 0,
-    };
+    liveDrinkTracking.value[personId] = createTrackingState();
   }
 
   function resetAllTracking() {
     liveDrinkTracking.value = {};
     people.value.forEach((person) => {
       resetPersonTracking(person.id);
-      clearMaintainBAC(person.id);
+      person.maintainTargetState = null;
     });
-    isLive.value = false;
-  }
-
-  function toggleLiveMode() {
-    isLive.value = !isLive.value;
   }
 
   function updatePersonBAC(personId) {
@@ -99,119 +148,72 @@ export const useAlcoholStore = defineStore("alcohol", () => {
     tracking.currentBAC = calculateCurrentBAC(tracking.drinkHistory, person);
   }
 
-  function calculateBACOverTime(person, hours) {
-    if (!person || hours === undefined) return 0;
-
-    if (isLive.value && liveDrinkTracking.value[person.id]) {
-      return liveDrinkTracking.value[person.id].currentBAC;
-    }
-
-    const drink = DRINK_TYPES[drinkType.value];
-    const singleDrinkBAC = calculateDrinksForBAC(
-      0.02, // Use a small target to get single drink contribution
-      person.weight,
-      person.gender,
-      drink.alcoholPercentage,
-      drink.oz
-    );
-
-    return Math.max(
-      0,
-      singleDrinkBAC * person.drinksPerHour * hours -
-        BAC_CONSTANTS.METABOLIC_RATE * hours
-    );
+  function addCustomDrink(drink) {
+    customDrinks.value.push(normalizeCustomDrink(drink));
   }
 
-  function setDrinkType(type) {
-    drinkType.value = type;
-  }
-
-  function setCompareWeights(value) {
-    compareWeights.value = value;
-    if (value) {
-      compareDrinks.value = false;
-    }
-  }
-
-  function setCompareDrinks(value) {
-    compareDrinks.value = value;
-    if (value) {
-      compareWeights.value = false;
-    }
-  }
-
-  function setMaintainBAC(personId, bac) {
+  function setMaintainTarget(personId, stateName) {
     const person = people.value.find((p) => p.id === personId);
-    if (person) {
-      person.maintainBAC = bac;
-      person.lastMaintainTime = new Date();
-    }
+    if (!person) return;
+
+    const state = MAINTAINABLE_STATES.find((entry) => entry.state === stateName);
+    person.maintainTargetState = state ? state.state : null;
   }
 
-  function clearMaintainBAC(personId) {
+  function clearMaintainTarget(personId) {
     const person = people.value.find((p) => p.id === personId);
-    if (person) {
-      person.maintainBAC = null;
-      person.lastMaintainTime = null;
-    }
+    if (!person) return;
+    person.maintainTargetState = null;
   }
 
-  function calculateDrinksToMaintain(personId) {
+  function getMaintainTargetBAC(personId) {
     const person = people.value.find((p) => p.id === personId);
-    if (!person || !person.maintainBAC) return null;
+    if (!person?.maintainTargetState) return null;
 
-    const tracking = liveDrinkTracking.value[personId];
-    if (!tracking) return null;
-
-    const now = new Date();
-    const hoursSinceMaintain = person.lastMaintainTime
-      ? (now - new Date(person.lastMaintainTime)) / (1000 * 60 * 60)
-      : 0;
-
-    const metabolizedBAC = BAC_CONSTANTS.METABOLIC_RATE * hoursSinceMaintain;
-    const targetBAC = person.maintainBAC;
-    const currentBAC = tracking.currentBAC;
-
-    if (currentBAC >= targetBAC) return 0;
-
-    const drink = DRINK_TYPES[drinkType.value];
-    return calculateDrinksForBAC(
-      targetBAC - currentBAC + metabolizedBAC,
-      person.weight,
-      person.gender,
-      drink.alcoholPercentage,
-      drink.oz
+    const state = MAINTAINABLE_STATES.find(
+      (entry) => entry.state === person.maintainTargetState
     );
+    if (!state) return null;
+
+    return Number(((state.minBAC + state.maxBAC) / 2).toFixed(3));
   }
+
+  people.value.forEach((person) => {
+    updatePersonBAC(person.id);
+  });
+
+  watch(
+    [people, customDrinks, liveDrinkTracking],
+    () => {
+      const storage = getStorage();
+      if (!storage) return;
+
+      storage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          people: people.value,
+          customDrinks: customDrinks.value,
+          liveDrinkTracking: liveDrinkTracking.value,
+        })
+      );
+    },
+    { deep: true }
+  );
 
   return {
-    // State
     people,
-    drinkType,
-    compareWeights,
-    compareDrinks,
-    timeRange,
+    customDrinks,
     liveDrinkTracking,
-    isLive,
-
-    // Getters
-    recommendedDrinksForTarget,
-
-    // Actions
     addPerson,
     updatePerson,
     removePerson,
     addDrinkForPerson,
     resetPersonTracking,
     resetAllTracking,
-    toggleLiveMode,
     updatePersonBAC,
-    calculateBACOverTime,
-    setDrinkType,
-    setCompareWeights,
-    setCompareDrinks,
-    setMaintainBAC,
-    clearMaintainBAC,
-    calculateDrinksToMaintain,
+    addCustomDrink,
+    setMaintainTarget,
+    clearMaintainTarget,
+    getMaintainTargetBAC,
   };
 });

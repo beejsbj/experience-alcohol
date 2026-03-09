@@ -1,5 +1,5 @@
 {
-  "name": "alcohol-calculator-vue",
+  "name": "experience-alcohol",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -12,12 +12,8 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@formkit/drag-and-drop": "^0.5.3",
-    "echarts": "^5.4.3",
-    "gsap": "^3.13.0",
     "pinia": "^3.0.2",
-    "vue": "^3.3.0",
-    "vue-echarts": "^6.6.1"
+    "vue": "^3.3.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.5.0",

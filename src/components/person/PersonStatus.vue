@@ -1,74 +1,141 @@
 <script setup>
-import { defineProps } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { usedrinks } from "../../composables/usedrinks";
 import { useperson } from "../../composables/useperson";
+import { triggerHaptic } from "../../utils/haptics";
 
 const props = defineProps({
   personId: {
-    type: String,
-    required: true,
-  },
-  maintainBAC: {
-    type: Number,
-    default: null,
-  },
-  currentBAC: {
     type: Number,
     required: true,
   },
 });
 
 const {
+  getCurrentFeelingDetails,
   getCurrentFeelingState,
+  getDisplayedMaintainDetails,
+  getMaintainOptions,
+  getMaintainStatusCopy,
+  getMaintainTargetDetails,
   getRecommendation,
   getBACColorClass,
-  getMaintainanceAdvice,
-  setMaintainLevel,
-  clearMaintainLevel,
+  isMaintaining,
+  setMaintainTarget,
+  clearMaintainTarget,
 } = useperson();
+const { getPersonBAC } = usedrinks();
+
+const menuRef = ref(null);
+const menuOpen = ref(false);
+const currentBACValue = computed(() => Number(getPersonBAC(props.personId) ?? 0));
+const feelingDetails = computed(() => getCurrentFeelingDetails(props.personId));
+const currentBACLabel = computed(() => `${currentBACValue.value.toFixed(3)}%`);
+const maintainOptions = computed(() => getMaintainOptions());
+const maintainTargetDetails = computed(() => getMaintainTargetDetails(props.personId));
+const displayedMaintainDetails = computed(() =>
+  getDisplayedMaintainDetails(props.personId)
+);
+const maintainIsActive = computed(() => isMaintaining(props.personId));
+const maintainStatus = computed(() => getMaintainStatusCopy(props.personId));
+
+const toggleMaintain = () => {
+  if (maintainIsActive.value) {
+    clearMaintainTarget(props.personId);
+    triggerHaptic("selection");
+    return;
+  }
+
+  setMaintainTarget(props.personId, displayedMaintainDetails.value.state);
+  triggerHaptic("selection");
+};
+
+const selectMaintainTarget = (stateName) => {
+  setMaintainTarget(props.personId, stateName);
+  menuOpen.value = false;
+  triggerHaptic("selection");
+};
+
+const handleDocumentClick = (event) => {
+  if (!menuRef.value?.contains(event.target)) {
+    menuOpen.value = false;
+  }
+};
+
+onMounted(() => {
+  document.addEventListener("click", handleDocumentClick);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", handleDocumentClick);
+});
 </script>
 
 <template>
-  <div class="space-y-3 bg-gray-50 p-4 rounded-lg">
-    <div class="space-y-1">
-      <div class="flex items-baseline gap-2">
-        <span class="text-gray-600 text-sm">Current BAC:</span>
-        <span :class="[getBACColorClass(currentBAC), 'text-2xl font-bold']">
-          {{ (currentBAC * 100).toFixed(3) }}%
-        </span>
+  <div class="tracker-panel tracker-panel--soft relative z-[3] space-y-2.5">
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <p class="surface-label">Current state</p>
+        <span class="live-dot"></span>
       </div>
-      <div class="text-lg">{{ getCurrentFeelingState(personId) }}</div>
-    </div>
-
-    <!-- Recommendations -->
-    <div class="border-t border-gray-200 pt-3">
-      <h3 class="font-semibold text-gray-800 mb-1">Recommendation:</h3>
-      <p class="text-gray-700">{{ getRecommendation(personId) }}</p>
-      <p v-if="maintainBAC" class="text-gray-700 mt-1">
-        {{ getMaintainanceAdvice(personId) }}
-      </p>
-    </div>
-
-    <!-- Maintain Button -->
-    <div class="flex items-center gap-2">
-      <button
-        v-if="!maintainBAC"
-        @click="setMaintainLevel({ id: personId })"
-        class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-        :disabled="currentBAC === 0"
-      >
-        Maintain This Level
-      </button>
-      <button
-        v-else
-        @click="clearMaintainLevel({ id: personId })"
-        class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-      >
-        Stop Maintaining
-      </button>
-      <span v-if="maintainBAC" class="text-sm text-gray-600">
-        Target: {{ (maintainBAC * 100).toFixed(3) }}%
+      <span class="stat-pill">
+        {{ getCurrentFeelingState(personId) }}
       </span>
     </div>
+    <div class="space-y-1.5">
+      <div class="flex items-end gap-2">
+        <span :class="[getBACColorClass(currentBACValue), 'text-3xl font-semibold tracking-tight']">
+          {{ currentBACLabel }}
+        </span>
+        <p class="text-[11px] leading-4 text-[color:var(--muted)]">
+          {{ feelingDetails.description }}
+        </p>
+      </div>
+    </div>
+    <div class="maintain-bar" ref="menuRef">
+      <button
+        class="maintain-lock"
+        :class="{ 'maintain-lock--active': maintainIsActive }"
+        @click.stop="toggleMaintain"
+      >
+        {{ maintainIsActive ? "Clear" : "Lock" }}
+      </button>
+      <button class="maintain-pill" @click.stop="menuOpen = !menuOpen">
+        <span class="maintain-pill__label">
+          {{
+            maintainTargetDetails?.state || displayedMaintainDetails.state
+          }}
+        </span>
+        <span class="maintain-pill__meta">
+          {{ maintainIsActive ? "Holding" : "Target" }}
+        </span>
+        <span class="maintain-pill__caret" :class="{ 'rotate-180': menuOpen }">
+          v
+        </span>
+      </button>
+
+      <div v-if="menuOpen" class="maintain-menu">
+        <button
+          v-for="option in maintainOptions"
+          :key="option.state"
+          class="maintain-option"
+          :class="{
+            'maintain-option--active':
+              (maintainTargetDetails?.state || displayedMaintainDetails.state) ===
+              option.state,
+          }"
+          @click.stop="selectMaintainTarget(option.state)"
+        >
+          <span>{{ option.state }}</span>
+          <span class="maintain-option__range">
+            {{ option.minBAC.toFixed(2) }}-{{ option.maxBAC.toFixed(2) }}%
+          </span>
+        </button>
+      </div>
+    </div>
+    <p class="maintain-copy">{{ maintainStatus }}</p>
+    <p class="rounded-[14px] border border-[color:var(--line)] bg-white/65 px-2.5 py-2 text-xs leading-5 text-[color:var(--ink)]">
+      {{ getRecommendation(personId) }}
+    </p>
   </div>
 </template>
