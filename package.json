@@ -15,6 +15,9 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@fontsource/caveat": "^5.2.8",
+    "@fontsource/fraunces": "^5.2.9",
+    "@fontsource/space-mono": "^5.2.9",
     "pinia": "^3.0.2",
     "vue": "^3.3.0"
   },
