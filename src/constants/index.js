@@ -1,5 +1,3 @@
-// Centralised constants – replaces src/constants.js
-
 // Widmark formula constants
 export const BAC_CONSTANTS = {
   METABOLIC_RATE: 0.015, // BAC reduction per hour (Widmark elimination rate)
@@ -10,31 +8,14 @@ export const BAC_CONSTANTS = {
   },
 };
 
+// Ink tones a person can claim for their line/avatar
+export const PERSON_COLORS = ["#E8A33C", "#C7521F", "#8C9A54", "#2B3A8F", "#B85C7A"];
+
 export const DRINKS = [
-  {
-    type: "Beer",
-    icon: "/icons/beer.svg",
-    alcoholContent: 0.05,
-    volume: 12,
-  },
-  {
-    type: "Wine",
-    icon: "/icons/wine.svg",
-    alcoholContent: 0.12,
-    volume: 5,
-  },
-  {
-    type: "Cocktail",
-    icon: "/icons/cocktail.svg",
-    alcoholContent: 0.15,
-    volume: 8,
-  },
-  {
-    type: "Shot",
-    icon: "/icons/shot.svg",
-    alcoholContent: 0.4,
-    volume: 1.5,
-  },
+  { type: "beer", abv: 0.05, volume: 12 },
+  { type: "wine", abv: 0.12, volume: 5 },
+  { type: "cocktail", abv: 0.15, volume: 8 },
+  { type: "shot", abv: 0.4, volume: 1.5 },
 ];
 
 // BAC levels and their associated effects
@@ -111,11 +92,5 @@ export const MAINTAINABLE_STATES = FEELING_STATES.filter((state) =>
   )
 );
 
-// Default values for new users
-export const DEFAULT_PERSON = {
-  name: "",
-  weight: 78,
-  gender: "male",
-  color: "#8884d8",
-  maintainTargetState: null,
-};
+// removed in UI swap task
+export const DEFAULT_PERSON = { name: "", weight: 78, gender: "male", color: "#8884d8", maintainTargetState: null };
