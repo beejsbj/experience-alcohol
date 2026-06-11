@@ -72,7 +72,7 @@ const saveCustom = () => {
           :aria-label="`Log ${drink.type} for ${person.name}`"
           @click="pour(drink)"
         >
-          {{ drink.type.length > 6 ? drink.type.slice(0, 5) + "…" : drink.type }}
+          <span :style="drink.type.length > 6 ? { fontSize: '0.62rem' } : undefined">{{ drink.type }}</span>
         </button>
         <TallyMarks :count="countFor(drink.type)" class="mt-1" />
         <p
