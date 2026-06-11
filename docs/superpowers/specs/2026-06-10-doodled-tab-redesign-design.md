@@ -99,7 +99,7 @@ State stays in the existing Pinia store, renamed conceptually: a **session** (`{
 - **Stack:** unchanged — Vue 3, Pinia, Tailwind, Vite, Vitest. New CSS design tokens replace the current `main.css` component layer entirely.
 - **PWA:** `vite-plugin-pwa` — manifest (name "Experience Alcohol", short name "Tab", theme `#FFF7EC`), maskable icons (drawn in the doodle style), offline-first service worker (app shell precache; everything is local anyway).
 - **Units:** weight in kg (unchanged); drink sizes displayed as `12 oz` with ml in the custom-drink form's placeholder. Internal math stays in oz.
-- **Deploy:** GitHub Pages via Actions workflow (static, free, no new accounts). `vite.config.js` gets the base path; PWA scope matches.
+- **Deploy:** Vercel (CLI authenticated as beejsbj). Branch previews for phone testing during development; production deploy after the PR merges. Root base path, so PWA scope is `/`.
 - **Repo hygiene:** untrack `dist/` and `.DS_Store` (gitignore them), delete stale `todo.md` and `features.md`, rewrite README (Bun-first commands, product description, disclaimer), note Node ≥ 20 requirement (`engines` field + `.nvmrc`).
 - **Testing:** existing 9 tests must keep passing; add unit tests for forecast projection, session-event store actions, and storage migration. Manual verification on mobile viewport via preview before ship.
 
