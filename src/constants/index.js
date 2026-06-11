@@ -91,6 +91,3 @@ export const MAINTAINABLE_STATES = FEELING_STATES.filter((state) =>
     state.state
   )
 );
-
-// removed in UI swap task
-export const DEFAULT_PERSON = { name: "", weight: 78, gender: "male", color: "#8884d8", maintainTargetState: null };

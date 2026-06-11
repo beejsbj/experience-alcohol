@@ -1,36 +1,38 @@
 <script setup>
-import LiveDrinkTracker from "./components/LiveDrinkTracker.vue";
+import { computed } from "vue";
+import { useSessionStore } from "./stores/session";
+import TabHeader from "./components/TabHeader.vue";
+import FeelingCard from "./components/FeelingCard.vue";
+import PourRow from "./components/PourRow.vue";
+import VibeChart from "./components/VibeChart.vue";
+import ReceiptLog from "./components/ReceiptLog.vue";
+import CloseTab from "./components/CloseTab.vue";
+import SquiggleDivider from "./components/SquiggleDivider.vue";
+
+const store = useSessionStore();
+const focused = computed(() => store.person(store.focusedPersonId));
 </script>
 
 <template>
-  <div class="fab-app-shell min-h-screen px-3 py-3 sm:px-5 sm:py-4">
-    <div class="brew-bubbles" aria-hidden="true">
-      <span class="brew-bubbles__bubble brew-bubbles__bubble--1"></span>
-      <span class="brew-bubbles__bubble brew-bubbles__bubble--2"></span>
-      <span class="brew-bubbles__bubble brew-bubbles__bubble--3"></span>
-      <span class="brew-bubbles__bubble brew-bubbles__bubble--4"></span>
-      <span class="brew-bubbles__bubble brew-bubbles__bubble--5"></span>
-    </div>
+  <main class="relative mx-auto min-h-screen w-full max-w-md overflow-x-clip px-4 pb-16 pt-5">
+    <div class="stain stain-1" aria-hidden="true"></div>
+    <div class="stain stain-2" aria-hidden="true"></div>
 
-    <div class="mx-auto max-w-5xl space-y-3">
-      <header class="fab-hero enter-rise">
-        <div class="flex items-end justify-between gap-3">
-          <div class="space-y-1">
-            <p class="fab-eyebrow">Experience Alcohol</p>
-            <h1 class="fab-title">Live drink tracker</h1>
-          </div>
-          <span class="fab-chip">Live</span>
-        </div>
-        <p class="fab-copy">
-          Track drinks, watch BAC drift in real time, and keep everyone visible.
-        </p>
-      </header>
+    <TabHeader />
 
-      <LiveDrinkTracker />
+    <template v-if="focused">
+      <FeelingCard :person="focused" class="mt-4" />
+      <PourRow :person="focused" class="mt-4" />
+    </template>
 
-      <p class="fab-legal">
-        Never use this to decide whether it is safe to drive.
-      </p>
-    </div>
-  </div>
+    <SquiggleDivider :seed="2" class="mt-6" />
+    <VibeChart class="mt-2" />
+    <ReceiptLog class="mt-5" />
+    <CloseTab class="mt-6" />
+
+    <p class="print mt-8 text-center text-[10px] leading-5" style="color: var(--faded)">
+      estimates only · never a reason to drive<br />
+      drink water, you animal
+    </p>
+  </main>
 </template>
