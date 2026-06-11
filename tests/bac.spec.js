@@ -3,6 +3,7 @@ import {
   calculateBACAtTime,
   calculateSingleDrinkBAC,
   calculateTimeUntilNextDrink,
+  projectBAC,
 } from "../src/utils/bac";
 
 describe("BAC utilities", () => {
@@ -65,5 +66,28 @@ describe("BAC utilities", () => {
     );
 
     expect(beforeDrink).toBe(0);
+  });
+
+  it("reads abv field as well as legacy alcoholContent", () => {
+    const drinkTime = Date.now() - 10 * 60 * 1000;
+    const history = [{ timestamp: new Date(drinkTime), abv: 0.05, volume: 12 }];
+    const bac = calculateBACAtTime(history, { weight: 78, gender: "male" }, Date.now());
+    expect(bac).toBeGreaterThan(0);
+  });
+
+  it("projects a declining forecast that reaches zero", () => {
+    const now = Date.now();
+    const history = [
+      { timestamp: new Date(now - 30 * 60 * 1000), alcoholContent: 0.4, volume: 1.5 },
+    ];
+    const points = projectBAC(history, { weight: 78, gender: "male" }, {
+      from: now,
+      hours: 6,
+      stepMinutes: 30,
+    });
+    expect(points[0].bac).toBeGreaterThan(0);
+    expect(points.at(-1).bac).toBe(0);
+    expect(points.length).toBeGreaterThan(2);
+    expect(points.at(-1).time).toBeLessThanOrEqual(now + 6 * 60 * 60 * 1000);
   });
 });
