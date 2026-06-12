@@ -14,6 +14,8 @@ import RoughChart from "./RoughChart.vue";
 import PourTiles from "./PourTiles.vue";
 import PushPin from "./PushPin.vue";
 import StampVerdict from "./StampVerdict.vue";
+import InkArrow from "./InkArrow.vue";
+import ColorScribble from "./ColorScribble.vue";
 
 const props = defineProps({
   person: { type: Object, required: true },
@@ -37,11 +39,11 @@ const cutOff = computed(() => bac.value >= CUTOFF_BAC);
 const pourCopy = computed(() => {
   if (cutOff.value) return "no more tonight — water + a friend keeping watch";
   const minutes = nextPourMinutes(bac.value, props.person, DRINKS[0], props.person.pinnedState);
-  if (minutes === null || minutes <= 0) return "next pour: whenever you like";
+  if (minutes === null || minutes <= 0) return "next pour — whenever you like";
   const at = new Date(now.value + minutes * 60000);
   const hh = at.getHours().toString().padStart(2, "0");
   const mm = at.getMinutes().toString().padStart(2, "0");
-  return `next pour ok ${hh}:${mm}`;
+  return `next pour — ~${hh}:${mm}`;
 });
 
 const holdTime = computed(() => {
@@ -139,6 +141,7 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
       <p class="masthead print">
         EXPERIENCE ALCOHOL · TAB No. {{ String(person.id).padStart(3, "0") }}
       </p>
+      <ColorScribble :person="person" />
 
       <!-- 2. Session nickname (editable, shared) -->
       <div class="mt-1" :style="scatter(`nickname:${person.id}`, { r: 2, x: 4, y: 2 })">
@@ -156,11 +159,12 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
         <IdentityLine :person="person" />
       </div>
 
-      <!-- 4. Drinks: tally + count -->
-      <div class="mt-3 flex items-center gap-2" :style="scatter(`tally-row:${person.id}`, { r: 1, x: 3, y: 1 })">
-        <span class="print text-[11px]" style="color: var(--faded)">drinks:</span>
+      <!-- 4. Drinks: bare tally, annotated by hand -->
+      <div class="mt-3 flex items-center gap-1.5" :style="scatter(`tally-row:${person.id}`, { r: 1, x: 3, y: 1 })">
         <TallyStrokes :count="totalDrinks" :seed="`total:${person.id}`" />
         <span class="print text-sm font-bold">{{ totalDrinks }}</span>
+        <InkArrow :seed="`drinks:${person.id}`" :width="30" :height="18" />
+        <span class="scribble text-sm" style="color: var(--pen)">drinks</span>
       </div>
 
       <!-- 5. Event log lines (mono, seeded x-drift) -->
@@ -217,9 +221,7 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
           :style="{ transform: `translateX(${scatterRand('bac-dx:'+person.id)() * 4}px)` }"
         >
           {{ bac.toFixed(3) }}%
-          <span class="text-[10px] font-normal" style="color: var(--faded)">
-            est. · {{ rising ? "climbing" : "drifting down" }}
-          </span>
+          <span class="text-[10px] font-normal" style="color: var(--faded)">est.</span>
         </p>
 
         <!-- Vibe pin area -->
@@ -271,10 +273,16 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
           </div>
         </div>
 
-        <!-- Stamp verdict + pour copy -->
-        <div class="mt-2 flex flex-wrap items-center gap-2" :style="scatter(`stamp:${person.id}`, { r: 1, x: 2, y: 1 })">
+        <!-- Stamp verdict, annotated by hand -->
+        <div class="mt-2 flex flex-wrap items-center gap-1.5" :style="scatter(`stamp:${person.id}`, { r: 1, x: 2, y: 1 })">
           <StampVerdict :verdict="stamp" />
-          <span class="print text-[11px]" :style="{ transform: `translateX(${scatterRand('pc-dx:'+person.id)() * 4}px)` }">
+          <InkArrow
+            :seed="`pour:${person.id}`"
+            :width="30"
+            :height="18"
+            :color="cutOff ? 'var(--redpen)' : 'var(--pen)'"
+          />
+          <span class="scribble text-sm" :style="{ color: cutOff ? 'var(--redpen)' : 'var(--pen)' }">
             {{ pourCopy }}
           </span>
         </div>
