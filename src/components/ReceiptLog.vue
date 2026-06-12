@@ -8,7 +8,7 @@ const store = useSessionStore();
 const DEFAULT_TYPES = new Set(DRINKS.map((drink) => drink.type));
 
 const lines = computed(() => {
-  const multiplePeople = store.session.people.filter((p) => p.active).length > 1;
+  const multiplePeople = store.session.people.length > 1;
   return [...store.session.events]
     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
     .map((event) => {

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useSessionStore } from "../stores/session";
 import { useLiveNow } from "../composables/useLiveNow";
 import { calculateBACAtTime } from "../utils/bac";
@@ -46,6 +46,14 @@ const pinState = (stateName) => {
   vibeMenuOpen.value = false;
   triggerHaptic("selection");
 };
+
+const vibeMenuRef = ref(null);
+const handleDocumentClick = (event) => {
+  if (!vibeMenuRef.value?.contains(event.target)) vibeMenuOpen.value = false;
+};
+
+onMounted(() => document.addEventListener("click", handleDocumentClick));
+onBeforeUnmount(() => document.removeEventListener("click", handleDocumentClick));
 </script>
 
 <template>
@@ -80,7 +88,7 @@ const pinState = (stateName) => {
       <GlassMeter :bac="bac" :target="target" :rising="rising" class="w-[68px] shrink-0" />
     </div>
 
-    <div class="relative mt-3">
+    <div ref="vibeMenuRef" class="relative mt-3">
       <button type="button" class="scribble vibe-button" @click="vibeMenuOpen = !vibeMenuOpen">
         <template v-if="!target">pin a vibe for tonight ↴</template>
         <template v-else>holding: {{ target.state.toLowerCase() }} ↴</template>
