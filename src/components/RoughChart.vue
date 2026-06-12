@@ -75,11 +75,33 @@ const chart = computed(() => {
 
   const focusedNow = rendered.find((r) => r.focused)?.nowPoint ?? null;
 
+  const focusedSeries = series.find((s) => s.person.id === props.person.id) ?? null;
+  let trend = null;
+  if (focusedSeries && focusedSeries.future.length > 1) {
+    const midIdx = Math.floor(focusedSeries.future.length / 2);
+    const mid = focusedSeries.future[midIdx];
+    trend = {
+      label:
+        mid.bac > focusedSeries.past.at(-1).bac + 0.0005 ? "climbing" : "drifting down",
+      x: Math.min(toX(mid.time), WIDTH - 70),
+      y: Math.min(toY(mid.bac) + 14, HEIGHT - 6),
+    };
+  }
+
+  let hereArrow = null;
+  if (focusedNow) {
+    const tx = Math.min(focusedNow.x + 5, WIDTH - 55);
+    const ty = Math.max(focusedNow.y - 7, 10);
+    hereArrow = `M ${tx + 14} ${ty + 2} Q ${(tx + focusedNow.x) / 2} ${ty + 8} ${focusedNow.x + 2} ${focusedNow.y - 4}`;
+  }
+
   return {
     rendered,
     targetY: target ? toY((target.minBAC + target.maxBAC) / 2) : null,
     ticks,
     focusedNow,
+    trend,
+    hereArrow,
   };
 });
 </script>
@@ -112,17 +134,25 @@ const chart = computed(() => {
         >{{ tick.v.toFixed(2) }}</text>
       </g>
 
-      <!-- target/pinned vibe line (red dashed) -->
+      <!-- target/pinned vibe line (amber dashed) -->
       <line
         v-if="chart.targetY !== null"
         :x1="PAD.left"
         :y1="chart.targetY"
         :x2="WIDTH - PAD.right"
         :y2="chart.targetY + 1.5"
-        stroke="var(--redpen)"
+        stroke="var(--amber)"
         stroke-width="1.2"
         stroke-dasharray="3 5"
       />
+      <text
+        v-if="chart.targetY !== null"
+        :x="PAD.left + 2"
+        :y="Math.max(chart.targetY - 4, 8)"
+        font-family="'Caveat', cursive"
+        font-size="9"
+        fill="var(--amber)"
+      >the vibe you're holding</text>
 
       <!-- per-person series -->
       <g
@@ -161,6 +191,24 @@ const chart = computed(() => {
         font-size="9.5"
         fill="var(--redpen)"
       >you are here</text>
+
+      <path
+        v-if="chart.hereArrow"
+        :d="chart.hereArrow"
+        fill="none"
+        stroke="var(--redpen)"
+        stroke-width="1"
+        stroke-linecap="round"
+      />
+
+      <text
+        v-if="chart.trend"
+        :x="chart.trend.x"
+        :y="chart.trend.y"
+        font-family="'Caveat', cursive"
+        font-size="9.5"
+        fill="var(--faded)"
+      >{{ chart.trend.label }}</text>
     </svg>
   </div>
 </template>
