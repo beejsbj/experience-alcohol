@@ -43,16 +43,6 @@ const pourCopy = computed(() => {
   return `next pour — ~${hh}:${mm}`;
 });
 
-const holdTime = computed(() => {
-  if (!target.value) return null;
-  const minutes = nextPourMinutes(bac.value, props.person, DRINKS[0], props.person.pinnedState);
-  if (minutes === null || minutes <= 0) return null;
-  const at = new Date(now.value + minutes * 60000);
-  const hh = at.getHours().toString().padStart(2, "0");
-  const mm = at.getMinutes().toString().padStart(2, "0");
-  return `${hh}:${mm}`;
-});
-
 // --- Receipt log lines (this person only) ---
 const DEFAULT_TYPES = new Set(DRINKS.map((d) => d.type));
 
@@ -60,18 +50,18 @@ const receiptLines = computed(() => {
   return [...events.value]
     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
     .map((event) => {
-      const delta = calculateSingleDrinkBAC(
-        props.person.weight,
-        props.person.gender,
-        event.abv ?? event.alcoholContent,
-        event.volume
-      );
+      const abv = event.abv ?? event.alcoholContent;
+      const delta = calculateSingleDrinkBAC(props.person.weight, props.person.gender, abv, event.volume);
       const rand = scatterRand(`line:${event.id}`);
       const dx = (rand() * 4).toFixed(1); // seeded x-drift 0–4px (printed mono)
       return {
         id: event.id,
-        time: new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        label: event.type.toUpperCase(),
+        time: new Date(event.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }),
+        label: `${event.type.toLowerCase()} · ${Math.round(event.volume * 29.57)}ml · ${Number((abv * 100).toFixed(1))}%`,
         delta: `+${delta.toFixed(3)}`,
         isCustom: !DEFAULT_TYPES.has(event.type),
         dx,
@@ -132,7 +122,7 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
     style="max-width: 420px; animation: receipt-in 280ms ease-out both;"
     :style="{ ...paperStyle }"
   >
-    <div class="px-4 pb-8 pt-3">
+    <div class="px-5 pb-8 pt-3">
 
       <!-- 1. Masthead -->
       <p class="masthead print">
@@ -156,39 +146,18 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
         <IdentityLine :person="person" />
       </div>
 
-      <!-- 4. Drinks: bare tally, annotated by hand -->
-      <div class="mt-3 flex items-center gap-1.5" :style="scatter(`tally-row:${person.id}`, { r: 1, x: 3, y: 1 })">
-        <TallyStrokes :count="totalDrinks" :seed="`total:${person.id}`" />
-        <span class="print text-sm font-bold">{{ totalDrinks }}</span>
-        <InkArrow :seed="`drinks:${person.id}`" :width="30" :height="18" />
-        <span class="scribble text-sm" style="color: var(--pen)">drinks</span>
+      <!-- 4. Drinks: big bare tally, annotated by hand -->
+      <div class="mt-4 flex items-center gap-2" :style="scatter(`tally-row:${person.id}`, { r: 1, x: 3, y: 1 })">
+        <template v-if="totalDrinks > 0">
+          <TallyStrokes :count="totalDrinks" :seed="`total:${person.id}`" :size="30" color="var(--ink)" />
+          <InkArrow :seed="`drinks:${person.id}`" :width="34" :height="20" />
+          <span class="scribble text-base" style="color: var(--pen)">drinks</span>
+        </template>
+        <p v-else class="scribble text-base" style="color: var(--faded)">tap a drink to start your tab</p>
       </div>
 
-      <!-- 5. Event log lines (mono, seeded x-drift) -->
-      <div class="mt-2">
-        <ul v-if="receiptLines.length" class="print space-y-0.5 text-[11px]">
-          <li
-            v-for="line in receiptLines"
-            :key="line.id"
-            class="flex items-baseline gap-1.5"
-            :style="{ transform: `translateX(${line.dx}px)` }"
-          >
-            <span style="color: var(--faded)">{{ line.time }}</span>
-            <span class="uppercase tracking-wide">{{ line.label }}</span>
-            <span class="flex-1 overflow-hidden" aria-hidden="true" style="border-bottom: 1px dotted var(--faded); margin-bottom: 2px;"></span>
-            <span>{{ line.delta }}</span>
-            <span
-              v-if="line.isCustom"
-              class="scribble text-[12px]"
-              style="color: var(--redpen)"
-            >house special</span>
-          </li>
-        </ul>
-        <p v-else class="scribble text-sm" style="color: var(--faded)">tap a drink to start your tab</p>
-      </div>
-
-      <!-- 6. Rough chart -->
-      <div class="mt-1" :style="scatter(`chart-block:${person.id}`, { r: 0.5, x: 2, y: 1 })">
+      <!-- 5. Rough chart -->
+      <div class="mt-3" :style="scatter(`chart-block:${person.id}`, { r: 0.5, x: 2, y: 1 })">
         <RoughChart :person="person" />
       </div>
 
@@ -221,62 +190,8 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
           <span class="text-[10px] font-normal" style="color: var(--faded)">est.</span>
         </p>
 
-        <!-- Vibe pin area -->
-        <div ref="vibeMenuRef" class="relative mt-2">
-          <div
-            class="relative flex items-center gap-2 cursor-pointer"
-            style="padding-top: 8px"
-            :style="scatter(`pin-area:${person.id}`, { r: 1, x: 3, y: 1 })"
-            @click="toggleVibeMenu"
-          >
-            <template v-if="target">
-              <span class="sticker sticker--strip" :style="scatter(`pin-strip:${person.id}`, { r: 2, x: 2, y: 0 })">
-                <span class="scribble text-base" style="color: var(--ink)">
-                  hold {{ person.pinnedState.toLowerCase() }}{{ holdTime ? ` — next ~${holdTime}` : '' }}
-                </span>
-              </span>
-              <span class="absolute" style="top: -2px; left: 38px; z-index: 2">
-                <PushPin :animate="false" />
-              </span>
-            </template>
-            <template v-else>
-              <span class="scribble text-sm" style="color: var(--faded)">pin a vibe?</span>
-            </template>
-          </div>
-
-          <!-- Vibe menu — torn paper scrap -->
-          <div
-            v-if="vibeMenuOpen"
-            class="absolute left-0 top-full z-10 mt-1 p-3"
-            style="background: var(--paper); border: 1.5px solid var(--faded); min-width: 180px;"
-          >
-            <button
-              v-for="(option, i) in MAINTAINABLE_STATES"
-              :key="option.state"
-              type="button"
-              class="block w-full text-left py-1"
-              :style="scatter(`vibe-opt:${option.state}`, { r: 1.5, x: 3, y: 1 })"
-              @click.stop="pinState(option.state)"
-            >
-              <span class="scribble text-base" style="color: var(--pen)">{{ option.state.toLowerCase() }}</span>
-              <span class="print text-[10px] ml-2" style="color: var(--faded)">
-                {{ option.minBAC.toFixed(2) }}–{{ option.maxBAC.toFixed(2) }}%
-              </span>
-            </button>
-            <button
-              v-if="target"
-              type="button"
-              class="block w-full text-left py-1 scribble text-sm mt-1"
-              style="color: var(--redpen)"
-              @click.stop="pinState(null)"
-            >
-              unpin — free pour
-            </button>
-          </div>
-        </div>
-
         <!-- Stamp verdict, annotated by hand -->
-        <div class="mt-2 flex flex-wrap items-center gap-1.5" :style="scatter(`stamp:${person.id}`, { r: 1, x: 2, y: 1 })">
+        <div class="mt-3 flex flex-wrap items-center gap-1.5" :style="scatter(`stamp:${person.id}`, { r: 1, x: 2, y: 1 })">
           <StampVerdict :verdict="stamp" />
           <InkArrow
             :seed="`pour:${person.id}`"
@@ -290,12 +205,91 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
         </div>
       </div>
 
-      <!-- 8. Pour tiles -->
+      <!-- 8. Pour stickers -->
       <div class="mt-4">
         <PourTiles :person="person" />
       </div>
 
-      <!-- 9. Small print + Close Tab line -->
+      <!-- 9. Pinned vibe: sticker stock, pin punched through -->
+      <div ref="vibeMenuRef" class="relative mt-4">
+        <div
+          class="flex items-center gap-2 cursor-pointer"
+          style="padding-top: 8px"
+          :style="scatter(`pin-area:${person.id}`, { r: 1, x: 3, y: 1 })"
+          @click="toggleVibeMenu"
+        >
+          <template v-if="target">
+            <span class="scribble text-sm" style="color: var(--faded)">pinned —</span>
+            <span class="relative inline-flex" :style="scatter(`pin-strip:${person.id}`, { r: 2, x: 2, y: 0 })">
+              <span class="sticker sticker--strip">
+                <span class="scribble text-lg leading-tight" style="color: var(--ink)">
+                  hold {{ person.pinnedState.toLowerCase() }}
+                </span>
+              </span>
+              <span class="absolute" style="top: -10px; left: 42%; z-index: 2">
+                <PushPin :animate="false" />
+              </span>
+            </span>
+          </template>
+          <template v-else>
+            <span class="scribble text-sm" style="color: var(--faded)">pin a vibe?</span>
+          </template>
+        </div>
+
+        <!-- Vibe menu — torn paper scrap -->
+        <div
+          v-if="vibeMenuOpen"
+          class="absolute left-0 bottom-full z-10 mb-1 p-3"
+          style="background: var(--paper); border: 1.5px solid var(--faded); min-width: 180px; box-shadow: 0 4px 14px rgba(0,0,0,0.18);"
+        >
+          <button
+            v-for="(option, i) in MAINTAINABLE_STATES"
+            :key="option.state"
+            type="button"
+            class="block w-full text-left py-1"
+            :style="scatter(`vibe-opt:${option.state}`, { r: 1.5, x: 3, y: 1 })"
+            @click.stop="pinState(option.state)"
+          >
+            <span class="scribble text-base" style="color: var(--pen)">{{ option.state.toLowerCase() }}</span>
+            <span class="print text-[10px] ml-2" style="color: var(--faded)">
+              {{ option.minBAC.toFixed(2) }}–{{ option.maxBAC.toFixed(2) }}%
+            </span>
+          </button>
+          <button
+            v-if="target"
+            type="button"
+            class="block w-full text-left py-1 scribble text-sm mt-1"
+            style="color: var(--redpen)"
+            @click.stop="pinState(null)"
+          >
+            unpin — free pour
+          </button>
+        </div>
+      </div>
+
+      <!-- 10. The ledger: every pour, printed -->
+      <div v-if="receiptLines.length" class="mt-4 pt-2" style="border-top: 1.5px dashed var(--faded);">
+        <ul class="print space-y-1 text-[11px]">
+          <li
+            v-for="line in receiptLines"
+            :key="line.id"
+            class="flex items-baseline gap-1.5"
+            :style="{ transform: `translateX(${line.dx}px)` }"
+          >
+            <span style="color: var(--faded)">{{ line.time }}</span>
+            <span>{{ line.label }}</span>
+            <span
+              v-if="line.isCustom"
+              class="scribble text-[12px]"
+              style="color: var(--redpen)"
+            >house special</span>
+            <span class="flex-1 overflow-hidden" aria-hidden="true" style="border-bottom: 1px dotted var(--faded); margin-bottom: 2px;"></span>
+            <span>{{ line.delta }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- 11. Small print + Close Tab line -->
       <div class="mt-5 pt-3" style="border-top: 1px dashed var(--faded);">
         <p
           class="print text-center text-[10px] leading-5"

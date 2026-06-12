@@ -18,7 +18,7 @@ const reduced =
   typeof matchMedia !== "undefined" &&
   matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-const TOP_OFFSET = 16;
+const TOP_OFFSET = 34;
 const BOTTOM_CHROME = 96;
 
 const stackEl = ref(null);
@@ -187,14 +187,22 @@ function finishThrow(next, thrownEl) {
   panY = 0;
   store.setFocus(next.id);
   nextTick(() => {
-    applyStack(false);
-    if (thrownEl && !reduced) {
-      thrownEl.style.opacity = "0";
-      requestAnimationFrame(() => {
-        thrownEl.style.transition = "opacity 280ms ease";
-        thrownEl.style.opacity = "1";
-      });
+    if (reduced || !thrownEl) {
+      applyStack(false);
+      measure();
+      animating = false;
+      return;
     }
+    // Park the thrown card at its new depth invisibly, then let the rest
+    // of the pile shuffle up with the spring while it fades back in.
+    const idx = people.value.findIndex((p) => cardEls.value[p.id] === thrownEl);
+    if (idx !== -1) {
+      thrownEl.style.transition = "none";
+      thrownEl.style.transform = baseTransform(people.value[idx], depthOf(idx));
+      thrownEl.style.opacity = "0";
+      void thrownEl.offsetWidth;
+    }
+    applyStack(true);
     measure();
     animating = false;
   });

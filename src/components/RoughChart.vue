@@ -15,8 +15,8 @@ const store = useSessionStore();
 const now = useLiveNow();
 
 const WIDTH = 300;
-const HEIGHT = 120;
-const PAD = { top: 12, right: 10, bottom: 20, left: 28 };
+const HEIGHT = 132;
+const PAD = { top: 26, right: 12, bottom: 18, left: 10 };
 
 const chart = computed(() => {
   const start = new Date(store.session.startedAt).getTime();
@@ -48,7 +48,7 @@ const chart = computed(() => {
     const rand = scatterRand(seedBase);
     return points
       .map((p, i) => {
-        const jy = (rand() * 2 - 1) * 1.5;
+        const jy = (rand() * 2 - 1) * 0.8;
         return `${i === 0 ? "M" : "L"} ${toX(p.time).toFixed(1)} ${(toY(p.bac) + jy).toFixed(1)}`;
       })
       .join(" ");
@@ -58,7 +58,7 @@ const chart = computed(() => {
     const focused = s.person.id === props.person.id;
     return {
       id: s.person.id,
-      color: focused ? "var(--pen)" : s.person.color,
+      color: focused ? "var(--ink)" : s.person.color,
       opacity: focused ? 1 : 0.35,
       pastPath: roughPath(s.past, `chart:past:${s.person.id}:${s.past.length}`),
       futurePath: roughPath(
@@ -71,7 +71,6 @@ const chart = computed(() => {
   });
 
   const target = targetDetails(props.person.pinnedState);
-  const ticks = [0.04, 0.08, 0.12].filter((v) => v < maxBAC).map((v) => ({ v, y: toY(v) }));
 
   const focusedNow = rendered.find((r) => r.focused)?.nowPoint ?? null;
 
@@ -83,25 +82,29 @@ const chart = computed(() => {
     trend = {
       label:
         mid.bac > focusedSeries.past.at(-1).bac + 0.0005 ? "climbing" : "drifting down",
-      x: Math.min(toX(mid.time), WIDTH - 70),
-      y: Math.min(toY(mid.bac) + 14, HEIGHT - 6),
+      x: Math.min(toX(mid.time), WIDTH - 76),
+      y: Math.min(toY(mid.bac) + 18, HEIGHT - 4),
     };
   }
 
-  let hereArrow = null;
+  // floating "you are here" with an arrow curving down to the dot
+  let here = null;
   if (focusedNow) {
-    const tx = Math.min(focusedNow.x + 5, WIDTH - 55);
-    const ty = Math.max(focusedNow.y - 7, 10);
-    hereArrow = `M ${tx + 14} ${ty + 2} Q ${(tx + focusedNow.x) / 2} ${ty + 8} ${focusedNow.x + 2} ${focusedNow.y - 4}`;
+    const tx = Math.max(36, Math.min(focusedNow.x - 14, WIDTH - 72));
+    const ty = Math.max(13, focusedNow.y - 24);
+    here = {
+      tx,
+      ty,
+      arrow: `M ${tx + 22} ${ty + 4} Q ${((tx + 22 + focusedNow.x) / 2).toFixed(1)} ${((ty + focusedNow.y) / 2 + 7).toFixed(1)} ${focusedNow.x + 1} ${focusedNow.y - 5.5}`,
+    };
   }
 
   return {
     rendered,
     targetY: target ? toY((target.minBAC + target.maxBAC) / 2) : null,
-    ticks,
     focusedNow,
     trend,
-    hereArrow,
+    here,
   };
 });
 </script>
@@ -114,26 +117,6 @@ const chart = computed(() => {
       role="img"
       aria-label="Estimated BAC over the night, hand-drawn"
     >
-      <!-- grid tick lines + axis labels in Caveat -->
-      <g v-for="tick in chart.ticks" :key="tick.v">
-        <line
-          :x1="PAD.left"
-          :y1="tick.y"
-          :x2="WIDTH - PAD.right"
-          :y2="tick.y"
-          stroke="var(--faded)"
-          stroke-width="0.7"
-          stroke-dasharray="2 6"
-        />
-        <text
-          :x="2"
-          :y="tick.y + 3.5"
-          font-family="'Caveat', cursive"
-          font-size="8"
-          fill="var(--faded)"
-        >{{ tick.v.toFixed(2) }}</text>
-      </g>
-
       <!-- target/pinned vibe line (amber dashed) -->
       <line
         v-if="chart.targetY !== null"
@@ -142,16 +125,17 @@ const chart = computed(() => {
         :x2="WIDTH - PAD.right"
         :y2="chart.targetY + 1.5"
         stroke="var(--amber)"
-        stroke-width="1.2"
+        stroke-width="1.3"
         stroke-dasharray="3 5"
       />
       <text
         v-if="chart.targetY !== null"
-        :x="PAD.left + 2"
-        :y="Math.max(chart.targetY - 4, 8)"
+        :x="PAD.left + 4"
+        :y="Math.max(chart.targetY - 5, 10)"
         font-family="'Caveat', cursive"
-        font-size="9"
+        font-size="10.5"
         fill="var(--amber)"
+        transform-origin="center"
       >the vibe you're holding</text>
 
       <!-- per-person series -->
@@ -165,7 +149,7 @@ const chart = computed(() => {
           :d="s.pastPath"
           fill="none"
           :stroke="s.color"
-          stroke-width="2.2"
+          :stroke-width="s.focused ? 2.6 : 2"
           stroke-linecap="round"
           stroke-linejoin="round"
         />
@@ -174,40 +158,41 @@ const chart = computed(() => {
           :d="s.futurePath"
           fill="none"
           :stroke="s.color"
-          stroke-width="1.6"
+          :stroke-width="s.focused ? 1.8 : 1.4"
           stroke-dasharray="4 5"
           stroke-linecap="round"
         />
         <!-- now dot -->
-        <circle :cx="s.nowPoint.x" :cy="s.nowPoint.y" r="3" :fill="s.color" />
+        <circle :cx="s.nowPoint.x" :cy="s.nowPoint.y" :r="s.focused ? 4.2 : 3" :fill="s.focused ? 'var(--redpen)' : s.color" />
       </g>
 
-      <!-- "you are here" red Caveat label -->
-      <text
-        v-if="chart.focusedNow"
-        :x="Math.min(chart.focusedNow.x + 5, WIDTH - 55)"
-        :y="Math.max(chart.focusedNow.y - 7, 10)"
-        font-family="'Caveat', cursive"
-        font-size="9.5"
-        fill="var(--redpen)"
-      >you are here</text>
-
-      <path
-        v-if="chart.hereArrow"
-        :d="chart.hereArrow"
-        fill="none"
-        stroke="var(--redpen)"
-        stroke-width="1"
-        stroke-linecap="round"
-      />
+      <!-- "you are here": floating red note + arrow down to the dot -->
+      <g v-if="chart.here">
+        <text
+          :x="chart.here.tx"
+          :y="chart.here.ty"
+          font-family="'Caveat', cursive"
+          font-size="11.5"
+          fill="var(--redpen)"
+          :transform="`rotate(-3 ${chart.here.tx} ${chart.here.ty})`"
+        >you are here</text>
+        <path
+          :d="chart.here.arrow"
+          fill="none"
+          stroke="var(--redpen)"
+          stroke-width="1.2"
+          stroke-linecap="round"
+        />
+      </g>
 
       <text
         v-if="chart.trend"
         :x="chart.trend.x"
         :y="chart.trend.y"
         font-family="'Caveat', cursive"
-        font-size="9.5"
+        font-size="10.5"
         fill="var(--faded)"
+        :transform="`rotate(4 ${chart.trend.x} ${chart.trend.y})`"
       >{{ chart.trend.label }}</text>
     </svg>
   </div>

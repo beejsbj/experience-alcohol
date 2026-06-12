@@ -7,7 +7,6 @@ import { CUTOFF_BAC, nextPourMinutes } from "../utils/feelings";
 import { DRINKS } from "../constants";
 import { triggerHaptic } from "../utils/haptics";
 import { scatter } from "../utils/scatter";
-import TallyStrokes from "./TallyStrokes.vue";
 import WriteOn from "./WriteOn.vue";
 
 const props = defineProps({
@@ -24,9 +23,6 @@ const drinks = computed(() => [...DRINKS, ...store.session.customDrinks]);
 const bac = computed(() =>
   calculateBACAtTime(store.eventsFor(props.person.id), props.person, now.value)
 );
-
-const countFor = (type) =>
-  store.eventsFor(props.person.id).filter((e) => e.type === type).length;
 
 // Minutes until ready for a drink; null = cut off; 0 = ready
 const waitFor = (drink) => {
@@ -137,18 +133,16 @@ const saveCustom = () => {
 
             <span class="sticker__label">{{ waitLabel(drink) }}</span>
             <span v-if="timeLeft(drink)" class="print" style="font-size: 8px">{{ timeLeft(drink) }}</span>
+            <span class="print" style="font-size: 9px; color: var(--faded); transform: scale(0.95)">{{ drink.type }}</span>
           </button>
         </div>
-
-        <TallyStrokes :count="countFor(drink.type)" :seed="`tally:${person.id}:${drink.type}`" />
-        <span class="print text-[9px]" style="color: var(--faded)">{{ drink.type }}</span>
       </div>
 
       <!-- + own tile -->
-      <div class="flex flex-col items-center gap-1">
+      <div class="flex flex-col items-stretch gap-1">
         <button
           type="button"
-          class="sticker sticker--ghost w-full"
+          class="sticker sticker--ghost w-full h-full"
           style="font-family: 'Caveat', cursive; font-size: 0.85rem"
           :class="{ 'border-[var(--pen)]': showCustomSlip }"
           aria-label="Add a custom drink"

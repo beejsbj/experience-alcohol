@@ -5,6 +5,8 @@ import { scatterRand } from "../utils/scatter";
 const props = defineProps({
   count: { type: Number, required: true },
   seed: { type: String, default: "tally" },
+  size: { type: Number, default: 14 },
+  color: { type: String, default: "var(--pen)" },
 });
 
 const strokes = computed(() => {
@@ -49,8 +51,8 @@ const width = computed(() => Math.max(1, Math.ceil(props.count / 5)) * 28);
 <template>
   <svg
     v-if="count > 0"
-    :width="width"
-    height="14"
+    :width="(width * size) / 14"
+    :height="size"
     :viewBox="`0 0 ${width} 14`"
     aria-hidden="true"
   >
@@ -58,7 +60,7 @@ const width = computed(() => Math.max(1, Math.ceil(props.count / 5)) * 28);
       v-for="(stroke, index) in strokes"
       :key="index"
       v-bind="stroke"
-      stroke="var(--pen)"
+      :stroke="color"
       stroke-width="1.8"
       stroke-linecap="round"
     />
