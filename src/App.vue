@@ -4,7 +4,7 @@ import { useSessionStore } from "./stores/session";
 import { calculateBACAtTime } from "./utils/bac";
 import { useLiveNow } from "./composables/useLiveNow";
 import BubbleField from "./components/BubbleField.vue";
-import ReceiptDeck from "./components/ReceiptDeck.vue";
+import ReceiptPile from "./components/ReceiptPile.vue";
 import TableView from "./components/TableView.vue";
 import CloseTab from "./components/CloseTab.vue";
 
@@ -37,7 +37,7 @@ const showDeck = () => { view.value = "deck"; };
     <!-- Main content layer -->
     <div class="relative" style="z-index: 2;">
       <Transition name="view-fade" mode="out-in">
-        <ReceiptDeck v-if="view === 'deck'" @table="showTable" />
+        <ReceiptPile v-if="view === 'deck'" @table="showTable" />
         <TableView v-else @pickup="showDeck" />
       </Transition>
     </div>

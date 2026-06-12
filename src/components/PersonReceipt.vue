@@ -129,8 +129,8 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
 
 <template>
   <div
-    class="receipt-paper mx-auto w-full overflow-y-auto"
-    style="max-height: calc(100dvh - 90px); max-width: 420px; animation: receipt-in 280ms ease-out both;"
+    class="receipt-paper mx-auto w-full"
+    style="max-width: 420px; animation: receipt-in 280ms ease-out both;"
     :style="{ ...paperStyle }"
   >
     <div class="px-4 pb-8 pt-3">
