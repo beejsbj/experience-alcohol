@@ -78,6 +78,7 @@ const headingStyle = scatter(`table-heading:${store.session.id}`, { r: 2, x: 4, 
           marginTop: index === 0 ? '0' : '14px',
           marginLeft: `${16 + (index % 3) * 24}px`,
           zIndex: index,
+          animation: `scrap-in 260ms ease-out ${index * 50}ms both`,
         }"
         @click="pickUp(receipt.person.id)"
       >

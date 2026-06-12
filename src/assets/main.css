@@ -204,6 +204,13 @@
   }
 }
 
+@keyframes scrap-in {
+  from {
+    transform: translateY(-14px) rotate(3deg);
+    opacity: 0;
+  }
+}
+
 @keyframes pin-drop {
   0% {
     transform: translateY(-18px) scale(1.4);
