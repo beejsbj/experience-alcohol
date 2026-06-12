@@ -161,24 +161,81 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
         <RoughChart :person="person" />
       </div>
 
-      <!-- 7. Feeling block -->
+      <!-- 7. Feeling block (the pinned vibe lives here too) -->
       <div class="mt-3">
-        <!-- big feeling state in Caveat -->
-        <div :style="scatter(`feeling:${person.id}`, { r: 2.5, x: 5, y: 2 })">
-          <div class="flex items-baseline gap-1">
-            <span class="scribble text-[11px]" style="color: var(--faded)">feeling:</span>
-            <span class="scribble text-3xl font-bold" style="color: var(--pen)">{{ feeling.state.toLowerCase() }}</span>
+        <div class="flex items-end gap-3 flex-wrap" :style="scatter(`feeling:${person.id}`, { r: 2.5, x: 5, y: 2 })">
+          <!-- big feeling state in Caveat -->
+          <div>
+            <div class="flex items-baseline gap-1">
+              <span class="scribble text-[11px]" style="color: var(--faded)">feeling:</span>
+              <span class="scribble text-3xl font-bold" style="color: var(--pen)">{{ feeling.state.toLowerCase() }}</span>
+            </div>
+            <!-- red underline SVG -->
+            <svg class="-mt-1" width="140" height="10" viewBox="0 0 140 10" aria-hidden="true">
+              <path
+                d="M4 6 C 30 2, 80 2, 136 5 C 90 5, 35 7, 6 9"
+                fill="none"
+                stroke="var(--redpen)"
+                stroke-width="1.6"
+                stroke-linecap="round"
+              />
+            </svg>
           </div>
-          <!-- red underline SVG -->
-          <svg class="-mt-1" width="140" height="10" viewBox="0 0 140 10" aria-hidden="true">
-            <path
-              d="M4 6 C 30 2, 80 2, 136 5 C 90 5, 35 7, 6 9"
-              fill="none"
-              stroke="var(--redpen)"
-              stroke-width="1.6"
-              stroke-linecap="round"
-            />
-          </svg>
+
+          <!-- pinned vibe: sticker stock, pin punched through -->
+          <div ref="vibeMenuRef" class="relative" style="margin-bottom: 8px">
+            <div
+              class="cursor-pointer"
+              :style="scatter(`pin-area:${person.id}`, { r: 1, x: 3, y: 1 })"
+              @click="toggleVibeMenu"
+            >
+              <template v-if="target">
+                <span class="relative inline-flex" :style="scatter(`pin-strip:${person.id}`, { r: 2, x: 2, y: 0 })">
+                  <span class="sticker sticker--strip">
+                    <span class="scribble text-base leading-tight" style="color: var(--ink)">
+                      hold {{ person.pinnedState.toLowerCase() }}
+                    </span>
+                  </span>
+                  <span class="absolute" style="top: -9px; left: 42%; z-index: 2">
+                    <PushPin :animate="false" />
+                  </span>
+                </span>
+              </template>
+              <template v-else>
+                <span class="scribble text-sm" style="color: var(--faded)">pin a vibe?</span>
+              </template>
+            </div>
+
+            <!-- Vibe menu — torn paper scrap -->
+            <div
+              v-if="vibeMenuOpen"
+              class="absolute left-0 top-full z-10 mt-1 p-3"
+              style="background: var(--paper); border: 1.5px solid var(--faded); min-width: 180px; box-shadow: 0 4px 14px rgba(0,0,0,0.18);"
+            >
+              <button
+                v-for="(option, i) in MAINTAINABLE_STATES"
+                :key="option.state"
+                type="button"
+                class="block w-full text-left py-1"
+                :style="scatter(`vibe-opt:${option.state}`, { r: 1.5, x: 3, y: 1 })"
+                @click.stop="pinState(option.state)"
+              >
+                <span class="scribble text-base" style="color: var(--pen)">{{ option.state.toLowerCase() }}</span>
+                <span class="print text-[10px] ml-2" style="color: var(--faded)">
+                  {{ option.minBAC.toFixed(2) }}–{{ option.maxBAC.toFixed(2) }}%
+                </span>
+              </button>
+              <button
+                v-if="target"
+                type="button"
+                class="block w-full text-left py-1 scribble text-sm mt-1"
+                style="color: var(--redpen)"
+                @click.stop="pinState(null)"
+              >
+                unpin — free pour
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- BAC reading -->
@@ -190,18 +247,19 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
           <span class="text-[10px] font-normal" style="color: var(--faded)">est.</span>
         </p>
 
-        <!-- Stamp verdict, annotated by hand -->
-        <div class="mt-3 flex flex-wrap items-center gap-1.5" :style="scatter(`stamp:${person.id}`, { r: 1, x: 2, y: 1 })">
-          <StampVerdict :verdict="stamp" />
+        <!-- Stamp verdict at the right margin, annotation pointing at it -->
+        <div class="mt-3 flex flex-wrap items-center justify-end gap-1.5" :style="scatter(`stamp:${person.id}`, { r: 1, x: 2, y: 1 })">
+          <span class="scribble text-sm text-right" :style="{ color: cutOff ? 'var(--redpen)' : 'var(--pen)' }">
+            {{ pourCopy }}
+          </span>
           <InkArrow
             :seed="`pour:${person.id}`"
+            dir="right"
             :width="30"
             :height="18"
             :color="cutOff ? 'var(--redpen)' : 'var(--pen)'"
           />
-          <span class="scribble text-sm" :style="{ color: cutOff ? 'var(--redpen)' : 'var(--pen)' }">
-            {{ pourCopy }}
-          </span>
+          <StampVerdict :verdict="stamp" />
         </div>
       </div>
 
@@ -210,64 +268,7 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
         <PourTiles :person="person" />
       </div>
 
-      <!-- 9. Pinned vibe: sticker stock, pin punched through -->
-      <div ref="vibeMenuRef" class="relative mt-4">
-        <div
-          class="flex items-center gap-2 cursor-pointer"
-          style="padding-top: 8px"
-          :style="scatter(`pin-area:${person.id}`, { r: 1, x: 3, y: 1 })"
-          @click="toggleVibeMenu"
-        >
-          <template v-if="target">
-            <span class="scribble text-sm" style="color: var(--faded)">pinned —</span>
-            <span class="relative inline-flex" :style="scatter(`pin-strip:${person.id}`, { r: 2, x: 2, y: 0 })">
-              <span class="sticker sticker--strip">
-                <span class="scribble text-lg leading-tight" style="color: var(--ink)">
-                  hold {{ person.pinnedState.toLowerCase() }}
-                </span>
-              </span>
-              <span class="absolute" style="top: -10px; left: 42%; z-index: 2">
-                <PushPin :animate="false" />
-              </span>
-            </span>
-          </template>
-          <template v-else>
-            <span class="scribble text-sm" style="color: var(--faded)">pin a vibe?</span>
-          </template>
-        </div>
-
-        <!-- Vibe menu — torn paper scrap -->
-        <div
-          v-if="vibeMenuOpen"
-          class="absolute left-0 bottom-full z-10 mb-1 p-3"
-          style="background: var(--paper); border: 1.5px solid var(--faded); min-width: 180px; box-shadow: 0 4px 14px rgba(0,0,0,0.18);"
-        >
-          <button
-            v-for="(option, i) in MAINTAINABLE_STATES"
-            :key="option.state"
-            type="button"
-            class="block w-full text-left py-1"
-            :style="scatter(`vibe-opt:${option.state}`, { r: 1.5, x: 3, y: 1 })"
-            @click.stop="pinState(option.state)"
-          >
-            <span class="scribble text-base" style="color: var(--pen)">{{ option.state.toLowerCase() }}</span>
-            <span class="print text-[10px] ml-2" style="color: var(--faded)">
-              {{ option.minBAC.toFixed(2) }}–{{ option.maxBAC.toFixed(2) }}%
-            </span>
-          </button>
-          <button
-            v-if="target"
-            type="button"
-            class="block w-full text-left py-1 scribble text-sm mt-1"
-            style="color: var(--redpen)"
-            @click.stop="pinState(null)"
-          >
-            unpin — free pour
-          </button>
-        </div>
-      </div>
-
-      <!-- 10. The ledger: every pour, printed -->
+      <!-- 9. The ledger: every pour, printed -->
       <div v-if="receiptLines.length" class="mt-4 pt-2" style="border-top: 1.5px dashed var(--faded);">
         <ul class="print space-y-1 text-[11px]">
           <li
