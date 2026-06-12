@@ -32,6 +32,7 @@ const showDeck = () => { view.value = "deck"; };
   <div class="relative w-full overflow-hidden" style="min-height: 100dvh; background: var(--table);">
     <!-- Canvas bubble field behind everything -->
     <BubbleField :intensity="bubbleIntensity" style="z-index: 0;" />
+    <div class="table-grain" style="z-index: 1;" aria-hidden="true"></div>
 
     <!-- Main content layer -->
     <div class="relative" style="z-index: 2;">
