@@ -44,7 +44,7 @@ const pickUp = (id) => {
 };
 
 const addPerson = () => {
-  store.addPerson({});
+  store.addPerson({ name: "" });
   emit("pickup");
 };
 
@@ -69,13 +69,13 @@ const headingStyle = scatter(`table-heading:${store.session.id}`, { r: 2, x: 4, 
         :key="receipt.person.id"
         class="receipt-paper cursor-pointer relative"
         style="
-          max-width: 280px;
+          max-width: 75%;
           padding: 10px 14px 14px;
-          margin-bottom: -20px;
           z-index: 0;
         "
         :style="{
           ...receipt.scatterStyle,
+          marginTop: index === 0 ? '0' : '14px',
           marginLeft: `${16 + (index % 3) * 24}px`,
           zIndex: index,
         }"
@@ -85,7 +85,7 @@ const headingStyle = scatter(`table-heading:${store.session.id}`, { r: 2, x: 4, 
         <p
           class="scribble text-xl font-bold leading-none"
           :style="{ color: receipt.person.color }"
-        >{{ receipt.person.name }}</p>
+        >{{ receipt.person.name?.trim() || '???' }}</p>
 
         <!-- Big feeling state -->
         <p
@@ -122,7 +122,7 @@ const headingStyle = scatter(`table-heading:${store.session.id}`, { r: 2, x: 4, 
           border: 2px dashed var(--faded);
           background: transparent;
           box-shadow: none;
-          margin-top: 32px;
+          margin-top: 20px;
           margin-left: 40px;
         "
         :style="scatter(`stub:${store.session.id}`, { r: 3, x: 10, y: 4 })"

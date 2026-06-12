@@ -158,7 +158,7 @@ const tableHintStyle = computed(() => scatter(`table-hint:${store.session.id}`, 
           style="color: rgba(232,163,60,0.7)"
           :style="hintStyle"
         >
-          swipe for {{ nextPerson.name }} →
+          swipe for {{ nextPerson.name?.trim() || '???' }} →
         </span>
         <button
           type="button"

@@ -137,7 +137,7 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
 
       <!-- 1. Masthead -->
       <p class="masthead print">
-        EXPERIENCE ALCOHOL · TAB No. {{ String(store.session.id).slice(0, 6).toUpperCase() }}
+        EXPERIENCE ALCOHOL · TAB No. {{ String(person.id).padStart(3, "0") }}
       </p>
 
       <!-- 2. Session nickname (editable, shared) -->
@@ -187,7 +187,7 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
       </div>
 
       <!-- 6. Rough chart -->
-      <div class="mt-3" :style="scatter(`chart-block:${person.id}`, { r: 0.5, x: 2, y: 1 })">
+      <div class="mt-1" :style="scatter(`chart-block:${person.id}`, { r: 0.5, x: 2, y: 1 })">
         <RoughChart :person="person" />
       </div>
 
