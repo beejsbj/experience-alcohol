@@ -1,20 +1,28 @@
 # Experience Alcohol — your tab
 
-A live drink tracker styled as the bar tab you doodled on. Log drinks with a tap,
-watch an estimated BAC drift in real time, and pin the vibe you want to hold
-tonight — the app times your next pour to keep you there.
+A live drink tracker styled as a pile of paper receipts on a bar table. Log
+drinks with a tap, watch an estimated BAC drift in real time, and pin the vibe
+you want to hold tonight — the app times your next pour to keep you there.
 
 **Live:** https://experience-alcohol.vercel.app —
 installable PWA, add it to your home screen.
 
 ## How it works
 
-- Each person is a wobbly bubble on the tab; tap to switch, tap twice to edit.
-- Drinks log as ballpoint tally strokes and print on tonight's receipt.
-- The glass meter fills toward your pinned vibe ("hold here!"); stamps judge the
-  pace: ON PACE / EASY NOW / SLOW DOWN / CUT OFF.
-- The vibe line charts the night — solid ink for the past, dashed for the
-  forecast.
+- Every person gets a full-screen paper receipt. The pile is physical: the
+  paper follows your finger in both axes — throw it sideways for the next
+  person's tab, fling it up (or pull it down from the top) to set it on the
+  table for a birds-eye view of everyone, tap a scrap to pick it back up.
+- Drinks log from sticker pour strips stuck on the receipt; on cooldown they
+  gray out and a pencil hatch "dries" off as the wait runs down.
+- The receipt prints the facts (tally strokes, weight, the chart, the ledger
+  of every pour) and a human annotates them in ballpoint — arrows labeling
+  "drinks", "weight, kg", "you are here", "next pour".
+- Pin a vibe ("hold tipsy") — a sticker with a push pin through it next to the
+  feeling — and a rubber stamp judges the pace: ON PACE / EASY NOW /
+  SLOW DOWN / CUT OFF.
+- The rough chart draws the night: solid ink for the past, dashed for the
+  forecast, an amber dotted line for the vibe you're holding.
 - CLOSE TAB ends the night with a keepsake receipt.
 
 BAC is estimated with the Widmark formula. Everything stays in your browser's
@@ -31,7 +39,9 @@ bun run test:run   # vitest
 bun run build      # production build (dist/)
 ```
 
-Deploys to Vercel (`bunx vercel deploy` for previews, `bunx vercel --prod` for production).
+Deploys to Vercel (`bunx vercel deploy` for previews, `bunx vercel deploy --prod --yes` for production).
+
+Design specs and implementation plans live in `docs/superpowers/`.
 
 ## The important note
 

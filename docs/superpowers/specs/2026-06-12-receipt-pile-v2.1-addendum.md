@@ -105,3 +105,29 @@ Pour buttons become **sticky paper strips** stuck on the receipt — they don't 
 ## Out of scope
 
 Rooms/P2P (parked), any store or BAC-logic changes, PWA changes.
+
+## Post-implementation amendments (user-driven polish, June 12)
+
+After the build, the user compared the app to the approved interactive demo
+widget and asked for a match pass plus follow-ups. These supersede the
+corresponding details above:
+
+- **Layout order:** the event ledger moved to the bottom of the receipt
+  (below the pour stickers), formatted `HH:MM type · ml · abv% ···· +delta`.
+  The pinned vibe is **not** its own row — the sticker (pin punched through)
+  sits inline with "feeling: ‹state›"; "pin a vibe?" appears there when
+  unpinned. The verdict stamp is flexed to the right margin with the
+  annotation pointing at it (`next pour — … →  [ON PACE]`).
+- **Identity:** sex glyph has no arrow label; weight prints bare with a
+  floating "weight, kg" note on its own line, arrow hooking up at the number.
+- **Tally:** large ink strokes (size 30, `--ink`), no printed count beside it.
+- **Chart:** no tick gridlines or axis numbers; ink-black focused line; red
+  now-dot (r 4.2); "you are here" floats above with an arrow to the dot.
+- **Stickers:** drink name lives inside the sticker; no tally/name below it.
+  Cooldown shows `DRYING` + remaining time inside the sticker.
+- **InkArrow:** shallow-bow stroke; arrowhead barbs computed from the curve's
+  tangent at the head (never a deep hook).
+- **Pile:** top offset 34px so the stack visibly peeks; after a sideways
+  throw the remaining cards shuffle up with the spring (no snap) while the
+  thrown card fades in at the back. `setPointerCapture` is guarded for
+  inactive pointers.
