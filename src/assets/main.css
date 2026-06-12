@@ -97,7 +97,7 @@
     letter-spacing: 0.12em;
   }
 
-  .pour-tile {
+  .sticker {
     position: relative;
     overflow: hidden;
     display: flex;
@@ -107,34 +107,51 @@
     gap: 2px;
     width: 100%;
     aspect-ratio: 1;
-    border: 2.5px solid var(--faded);
-    border-radius: 6px;
-    background: var(--paper-shade);
-    color: #55554f;
+    background: #fffef6;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+    clip-path: polygon(
+      2% 6%, 5% 0, 95% 2%, 99% 8%,
+      98% 92%, 94% 100%, 6% 98%, 1% 93%
+    );
+    color: var(--greenink);
     transition: transform 120ms ease;
   }
 
-  .pour-tile:active {
+  .sticker:active {
     transform: scale(0.92);
   }
 
-  .pour-tile--ready {
-    border-color: var(--greenink);
-    background: #eaf7ee;
-    color: var(--greenink);
+  .sticker--drying {
+    color: #9a9a92;
   }
 
-  .pour-tile__sweep {
+  .sticker--strip {
+    width: auto;
+    aspect-ratio: auto;
+    padding: 3px 14px 4px;
+  }
+
+  .sticker--ghost {
+    background: transparent;
+    filter: none;
+    clip-path: none;
+    border: 2px dashed var(--faded);
+    color: var(--faded);
+  }
+
+  .sticker__hatch {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: conic-gradient(
-      rgba(60, 60, 55, 0.26) calc(var(--cd, 0) * 1turn),
-      transparent 0
+    background: repeating-linear-gradient(
+      115deg,
+      rgba(60, 60, 55, 0.22) 0 2px,
+      transparent 2px 5px
     );
+    clip-path: inset(0 0 0 calc((1 - var(--cd, 0)) * 100%));
   }
 
-  .pour-tile__label {
+  .sticker__label {
     font-family: "Space Mono", monospace;
     font-size: 0.55rem;
     font-weight: 700;

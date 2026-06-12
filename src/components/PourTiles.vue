@@ -6,6 +6,7 @@ import { calculateBACAtTime } from "../utils/bac";
 import { CUTOFF_BAC, nextPourMinutes } from "../utils/feelings";
 import { DRINKS } from "../constants";
 import { triggerHaptic } from "../utils/haptics";
+import { scatter } from "../utils/scatter";
 import TallyStrokes from "./TallyStrokes.vue";
 import WriteOn from "./WriteOn.vue";
 
@@ -47,8 +48,14 @@ const cdFraction = (drink) => {
 
 const waitLabel = (drink) => {
   const m = waitFor(drink);
-  if (m === null) return "water";
+  if (m === null) return "WATER";
   if (m <= 0) return "POUR!";
+  return "DRYING";
+};
+
+const timeLeft = (drink) => {
+  const m = waitFor(drink);
+  if (m === null || m <= 0) return "";
   return m < 60 ? `${Math.ceil(m)}m` : `${Math.ceil(m / 60)}h`;
 };
 
@@ -82,54 +89,56 @@ const saveCustom = () => {
     <!-- Pour tiles grid -->
     <div class="grid gap-2" :style="{ gridTemplateColumns: `repeat(${Math.min(drinks.length + 1, 5)}, 1fr)` }">
       <div v-for="drink in drinks" :key="drink.type" class="flex flex-col items-center gap-1">
-        <button
-          type="button"
-          class="pour-tile w-full"
-          :class="{ 'pour-tile--ready': isReady(drink) }"
-          :style="{ '--cd': cdFraction(drink) }"
-          :aria-label="`Log ${drink.type}`"
-          @click="pour(drink)"
-        >
-          <!-- Cooldown sweep overlay -->
-          <div v-if="!isReady(drink) && waitFor(drink) !== null && waitFor(drink) > 0" class="pour-tile__sweep"></div>
+        <div class="w-full" :style="scatter(`stick:${person.id}:${drink.type}`, { r: 3, x: 1, y: 1 })">
+          <button
+            type="button"
+            class="sticker w-full"
+            :class="{ 'sticker--drying': !isReady(drink) && waitFor(drink) !== null && waitFor(drink) > 0 }"
+            :style="{ '--cd': cdFraction(drink) }"
+            :aria-label="`Log ${drink.type}`"
+            @click="pour(drink)"
+          >
+            <div v-if="!isReady(drink) && waitFor(drink) !== null && waitFor(drink) > 0" class="sticker__hatch"></div>
 
-          <!-- Doodled SVG icon -->
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-            <!-- beer mug -->
-            <template v-if="drink.type === 'beer'">
-              <path d="M5 7 L5 22 Q5 24 7 24 L17 24 Q19 24 19 22 L19 7 Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M19 10 L22 10 Q24.5 10 24.5 13.5 Q24.5 17 22 17 L19 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-              <line x1="8" y1="7" x2="8" y2="4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-              <line x1="12" y1="7" x2="11" y2="4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-              <line x1="16" y1="7" x2="16" y2="5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-            </template>
-            <!-- wine glass -->
-            <template v-else-if="drink.type === 'wine'">
-              <path d="M8 4 L20 4 C20 4 22 12 14 16 C6 12 8 4 8 4 Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-              <line x1="14" y1="16" x2="14" y2="22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-              <line x1="10" y1="22" x2="18" y2="22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-            </template>
-            <!-- cocktail / martini -->
-            <template v-else-if="drink.type === 'cocktail'">
-              <path d="M6 5 L22 5 L14 16 Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-              <line x1="14" y1="16" x2="14" y2="22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-              <line x1="10" y1="22" x2="18" y2="22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-              <circle cx="20" cy="4" r="2" stroke="currentColor" stroke-width="1.4"/>
-            </template>
-            <!-- shot glass -->
-            <template v-else-if="drink.type === 'shot'">
-              <path d="M9 5 L19 5 L18 22 L10 22 Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            </template>
-            <!-- custom flask -->
-            <template v-else>
-              <path d="M10 5 L10 9 L6 16 Q5 20 8 22 L20 22 Q23 20 22 16 L18 9 L18 5 Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-              <line x1="8" y1="5" x2="20" y2="5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-              <line x1="9" y1="7" x2="19" y2="7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-            </template>
-          </svg>
+            <!-- Doodled SVG icon -->
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+              <!-- beer mug -->
+              <template v-if="drink.type === 'beer'">
+                <path d="M5 7 L5 22 Q5 24 7 24 L17 24 Q19 24 19 22 L19 7 Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M19 10 L22 10 Q24.5 10 24.5 13.5 Q24.5 17 22 17 L19 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <line x1="8" y1="7" x2="8" y2="4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                <line x1="12" y1="7" x2="11" y2="4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                <line x1="16" y1="7" x2="16" y2="5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </template>
+              <!-- wine glass -->
+              <template v-else-if="drink.type === 'wine'">
+                <path d="M8 4 L20 4 C20 4 22 12 14 16 C6 12 8 4 8 4 Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="14" y1="16" x2="14" y2="22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <line x1="10" y1="22" x2="18" y2="22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </template>
+              <!-- cocktail / martini -->
+              <template v-else-if="drink.type === 'cocktail'">
+                <path d="M6 5 L22 5 L14 16 Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="14" y1="16" x2="14" y2="22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <line x1="10" y1="22" x2="18" y2="22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <circle cx="20" cy="4" r="2" stroke="currentColor" stroke-width="1.4"/>
+              </template>
+              <!-- shot glass -->
+              <template v-else-if="drink.type === 'shot'">
+                <path d="M9 5 L19 5 L18 22 L10 22 Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </template>
+              <!-- custom flask -->
+              <template v-else>
+                <path d="M10 5 L10 9 L6 16 Q5 20 8 22 L20 22 Q23 20 22 16 L18 9 L18 5 Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="8" y1="5" x2="20" y2="5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <line x1="9" y1="7" x2="19" y2="7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </template>
+            </svg>
 
-          <span class="pour-tile__label">{{ waitLabel(drink) }}</span>
-        </button>
+            <span class="sticker__label">{{ waitLabel(drink) }}</span>
+            <span v-if="timeLeft(drink)" class="print" style="font-size: 8px">{{ timeLeft(drink) }}</span>
+          </button>
+        </div>
 
         <TallyStrokes :count="countFor(drink.type)" :seed="`tally:${person.id}:${drink.type}`" />
         <span class="print text-[9px]" style="color: var(--faded)">{{ drink.type }}</span>
@@ -139,8 +148,8 @@ const saveCustom = () => {
       <div class="flex flex-col items-center gap-1">
         <button
           type="button"
-          class="pour-tile w-full"
-          style="border-style: dashed; font-family: 'Caveat', cursive; font-size: 0.85rem;"
+          class="sticker sticker--ghost w-full"
+          style="font-family: 'Caveat', cursive; font-size: 0.85rem"
           :class="{ 'border-[var(--pen)]': showCustomSlip }"
           aria-label="Add a custom drink"
           @click="showCustomSlip = !showCustomSlip"

@@ -28,9 +28,6 @@ const now = useLiveNow();
 // --- BAC / feeling computeds ---
 const events = computed(() => store.eventsFor(props.person.id));
 const bac = computed(() => calculateBACAtTime(events.value, props.person, now.value));
-const rising = computed(
-  () => bac.value > calculateBACAtTime(events.value, props.person, now.value - 60000) + 0.00001
-);
 const feeling = computed(() => feelingFor(bac.value));
 const stamp = computed(() => stampFor(bac.value, props.person.pinnedState));
 const target = computed(() => targetDetails(props.person.pinnedState));
@@ -227,14 +224,19 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
         <!-- Vibe pin area -->
         <div ref="vibeMenuRef" class="relative mt-2">
           <div
-            class="flex items-center gap-2 cursor-pointer"
+            class="relative flex items-center gap-2 cursor-pointer"
+            style="padding-top: 8px"
             :style="scatter(`pin-area:${person.id}`, { r: 1, x: 3, y: 1 })"
             @click="toggleVibeMenu"
           >
             <template v-if="target">
-              <PushPin :animate="false" />
-              <span class="scribble text-sm" style="color: var(--redpen)">
-                hold it!! {{ holdTime ? `next one ~${holdTime}` : 'staying here' }}
+              <span class="sticker sticker--strip" :style="scatter(`pin-strip:${person.id}`, { r: 2, x: 2, y: 0 })">
+                <span class="scribble text-base" style="color: var(--ink)">
+                  hold {{ person.pinnedState.toLowerCase() }}{{ holdTime ? ` — next ~${holdTime}` : '' }}
+                </span>
+              </span>
+              <span class="absolute" style="top: -2px; left: 38px; z-index: 2">
+                <PushPin :animate="false" />
               </span>
             </template>
             <template v-else>
