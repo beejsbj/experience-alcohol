@@ -1,38 +1,58 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useSessionStore } from "./stores/session";
-import TabHeader from "./components/TabHeader.vue";
-import FeelingCard from "./components/FeelingCard.vue";
-import PourRow from "./components/PourRow.vue";
-import VibeChart from "./components/VibeChart.vue";
-import ReceiptLog from "./components/ReceiptLog.vue";
+import { calculateBACAtTime } from "./utils/bac";
+import { useLiveNow } from "./composables/useLiveNow";
+import BubbleField from "./components/BubbleField.vue";
+import ReceiptDeck from "./components/ReceiptDeck.vue";
+import TableView from "./components/TableView.vue";
 import CloseTab from "./components/CloseTab.vue";
-import SquiggleDivider from "./components/SquiggleDivider.vue";
 
 const store = useSessionStore();
-const focused = computed(() => store.person(store.focusedPersonId));
+const now = useLiveNow();
+
+const view = ref("deck"); // 'deck' | 'table'
+
+const focusedPerson = computed(() => store.person(store.focusedPersonId));
+const bubbleIntensity = computed(() => {
+  if (!focusedPerson.value) return 0;
+  const bac = calculateBACAtTime(
+    store.eventsFor(focusedPerson.value.id),
+    focusedPerson.value,
+    now.value
+  );
+  return Math.min(1, bac / 0.12);
+});
+
+const showTable = () => { view.value = "table"; };
+const showDeck = () => { view.value = "deck"; };
 </script>
 
 <template>
-  <main class="relative mx-auto min-h-screen w-full max-w-md overflow-x-clip px-4 pb-16 pt-5">
-    <div class="stain stain-1" aria-hidden="true"></div>
-    <div class="stain stain-2" aria-hidden="true"></div>
+  <div class="relative w-full overflow-hidden" style="min-height: 100dvh; background: var(--table);">
+    <!-- Canvas bubble field behind everything -->
+    <BubbleField :intensity="bubbleIntensity" style="z-index: 0;" />
 
-    <TabHeader />
+    <!-- Main content layer -->
+    <div class="relative" style="z-index: 2;">
+      <Transition name="view-fade" mode="out-in">
+        <ReceiptDeck v-if="view === 'deck'" @table="showTable" />
+        <TableView v-else @pickup="showDeck" />
+      </Transition>
+    </div>
 
-    <template v-if="focused">
-      <FeelingCard :person="focused" class="mt-4" />
-      <PourRow :person="focused" class="mt-4" />
-    </template>
-
-    <SquiggleDivider :seed="2" class="mt-6" />
-    <VibeChart class="mt-2" />
-    <ReceiptLog class="mt-5" />
-    <CloseTab class="mt-6" />
-
-    <p class="print mt-8 text-center text-[10px] leading-5" style="color: var(--faded)">
-      estimates only · never a reason to drive<br />
-      drink water, you animal
-    </p>
-  </main>
+    <!-- Keepsake overlay (on top of everything) -->
+    <CloseTab />
+  </div>
 </template>
+
+<style scoped>
+.view-fade-enter-active,
+.view-fade-leave-active {
+  transition: opacity 180ms ease;
+}
+.view-fade-enter-from,
+.view-fade-leave-to {
+  opacity: 0;
+}
+</style>

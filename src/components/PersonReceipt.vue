@@ -23,7 +23,7 @@ const props = defineProps({
 const store = useSessionStore();
 const now = useLiveNow();
 
-// --- BAC / feeling computeds (ported from FeelingCard) ---
+// --- BAC / feeling computeds ---
 const events = computed(() => store.eventsFor(props.person.id));
 const bac = computed(() => calculateBACAtTime(events.value, props.person, now.value));
 const rising = computed(
@@ -54,7 +54,7 @@ const holdTime = computed(() => {
   return `${hh}:${mm}`;
 });
 
-// --- Receipt log lines (ported from ReceiptLog, this person only) ---
+// --- Receipt log lines (this person only) ---
 const DEFAULT_TYPES = new Set(DRINKS.map((d) => d.type));
 
 const receiptLines = computed(() => {
