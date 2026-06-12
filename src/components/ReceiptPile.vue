@@ -95,7 +95,11 @@ function onPointerDown(e) {
     dy: 0,
     moved: false,
   };
-  top.setPointerCapture(e.pointerId);
+  try {
+    top.setPointerCapture(e.pointerId);
+  } catch {
+    // inactive pointer (synthetic events, some Safari cases) — drag still works via bubbling
+  }
   top.style.transition = "none";
 }
 
