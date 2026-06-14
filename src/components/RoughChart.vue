@@ -58,7 +58,7 @@ const chart = computed(() => {
     const focused = s.person.id === props.person.id;
     return {
       id: s.person.id,
-      color: focused ? "var(--ink)" : s.person.color,
+      color: focused ? "var(--pen)" : s.person.color,
       opacity: focused ? 1 : 0.35,
       pastPath: roughPath(s.past, `chart:past:${s.person.id}:${s.past.length}`),
       futurePath: roughPath(
@@ -163,7 +163,7 @@ const chart = computed(() => {
           stroke-linecap="round"
         />
         <!-- now dot -->
-        <circle :cx="s.nowPoint.x" :cy="s.nowPoint.y" :r="s.focused ? 4.2 : 3" :fill="s.focused ? 'var(--redpen)' : s.color" />
+        <circle :cx="s.nowPoint.x" :cy="s.nowPoint.y" :r="s.focused ? 4.2 : 3" :fill="s.focused ? 'var(--pen)' : s.color" />
       </g>
 
       <!-- "you are here": floating red note + arrow down to the dot -->
@@ -173,13 +173,13 @@ const chart = computed(() => {
           :y="chart.here.ty"
           font-family="'Caveat', cursive"
           font-size="11.5"
-          fill="var(--redpen)"
+          fill="var(--pen)"
           :transform="`rotate(-3 ${chart.here.tx} ${chart.here.ty})`"
         >you are here</text>
         <path
           :d="chart.here.arrow"
           fill="none"
-          stroke="var(--redpen)"
+          stroke="var(--pen)"
           stroke-width="1.2"
           stroke-linecap="round"
         />

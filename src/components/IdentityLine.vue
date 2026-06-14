@@ -4,6 +4,7 @@ import { useSessionStore } from "../stores/session";
 import { scatter } from "../utils/scatter";
 import WriteOn from "./WriteOn.vue";
 import InkArrow from "./InkArrow.vue";
+import ColorScribble from "./ColorScribble.vue";
 
 const props = defineProps({
   person: { type: Object, required: true },
@@ -14,7 +15,12 @@ const store = useSessionStore();
 const editingWeight = ref(false);
 const weightInput = ref(null);
 
-const lineStyle = scatter(`identity:${props.person.id}`, { r: 1.5, x: 5, y: 2 });
+// Each field is hand-placed: a seeded offset + tilt, positioned absolutely so
+// the name's length never drags the weight or its arrow out of true.
+const namePos = scatter(`name-pos:${props.person.id}`, { r: 2.5, x: 4, y: 3 });
+const sexPos = scatter(`sex-pos:${props.person.id}`, { r: 7, x: 3, y: 2 });
+const weightPos = scatter(`weight-pos:${props.person.id}`, { r: 2, x: 4, y: 3 });
+const weightNotePos = scatter(`weight-note:${props.person.id}`, { r: 3, x: 4, y: 3 });
 
 const toggleSex = () => {
   store.updatePerson(props.person.id, {
@@ -39,39 +45,44 @@ const updateWeight = (e) => {
 const updateName = (name) => {
   store.updatePerson(props.person.id, { name });
 };
-
-const canDeactivate = () => store.activePeople.length > 1;
-
-const deactivate = () => {
-  if (canDeactivate()) store.deactivatePerson(props.person.id);
-};
 </script>
 
 <template>
-  <div :style="lineStyle">
-    <div class="flex items-baseline flex-wrap gap-x-3 gap-y-1">
-      <!-- Name write-on -->
+  <div class="relative" style="height: 150px">
+    <!-- Ink color scribble + sex glyph cluster, top-right corner -->
+    <ColorScribble :person="person" />
+    <button
+      type="button"
+      class="scribble absolute text-xl leading-none"
+      style="top: 4px; right: 46px; color: var(--pen)"
+      :style="{ ...sexPos, top: '4px', right: '46px' }"
+      :aria-label="`Toggle sex — currently ${person.gender}`"
+      @click="toggleSex"
+    >{{ person.gender === 'male' ? '♂' : '♀' }}</button>
+
+    <!-- Name: the loudest thing on the paper -->
+    <div
+      class="absolute"
+      style="top: 4px; left: 2px; max-width: 64%"
+      :style="{ ...namePos, top: '4px', left: '2px', maxWidth: '64%' }"
+    >
       <WriteOn
         :model-value="person.name"
         :seed="`name:${person.id}`"
         placeholder="who's this?"
         :color="person.color"
-        class="text-3xl font-bold"
+        class="text-4xl font-bold leading-none"
         @update:model-value="updateName"
       />
+    </div>
 
-      <!-- Sex toggle: bare glyph, self-explanatory -->
-      <button
-        type="button"
-        class="scribble text-xl leading-none"
-        style="color: var(--pen)"
-        :style="scatter(`sex:${person.id}`, { r: 6, x: 1, y: 1 })"
-        :aria-label="`Toggle sex — currently ${person.gender}`"
-        @click="toggleSex"
-      >{{ person.gender === 'male' ? '♂' : '♀' }}</button>
-
-      <!-- Weight: bare printed number -->
-      <span v-if="!editingWeight" class="print text-base cursor-pointer" @click="startWeightEdit">
+    <!-- Weight: bare printed number, hand-placed below the name -->
+    <div
+      class="absolute"
+      style="top: 86px; left: 6px"
+      :style="{ ...weightPos, top: '86px', left: '6px' }"
+    >
+      <span v-if="!editingWeight" class="print text-lg cursor-pointer" @click="startWeightEdit">
         {{ person.weight }}
       </span>
       <input
@@ -81,33 +92,22 @@ const deactivate = () => {
         :value="person.weight"
         min="30"
         max="250"
-        class="print text-base w-14 bg-transparent border-b border-[var(--pen)] outline-none"
+        class="print text-lg w-16 bg-transparent border-b border-[var(--pen)] outline-none"
         style="font-size: 16px"
         @change="updateWeight"
         @blur="commitWeight"
         @keydown.enter="commitWeight"
       />
-
-      <!-- "left the bar" deactivate link -->
-      <button
-        v-if="canDeactivate()"
-        type="button"
-        class="scribble text-[10px] ml-auto"
-        style="color: var(--redpen); opacity: 0.75"
-        @click="deactivate"
-      >
-        left the bar
-      </button>
     </div>
 
-    <!-- Floating margin note: arrow hooks up toward the bare number -->
+    <!-- Weight margin note: arrow hooks back left toward the bare number -->
     <div
-      class="flex items-start gap-1"
-      style="margin-left: 32%; margin-top: -4px"
-      :style="scatter(`weight-note:${person.id}`, { r: 3, x: 6, y: 2 })"
+      class="absolute flex items-center gap-1"
+      style="top: 84px; left: 64px"
+      :style="{ ...weightNotePos, top: '84px', left: '64px' }"
     >
-      <InkArrow :seed="`weight:${person.id}`" dir="right" :width="30" :height="22" />
-      <span class="scribble text-sm" style="color: var(--pen); margin-top: 6px">weight, kg</span>
+      <InkArrow :seed="`weight:${person.id}`" dir="left" :width="32" :height="20" />
+      <span class="scribble text-base" style="color: var(--pen)">weight, kg</span>
     </div>
   </div>
 </template>

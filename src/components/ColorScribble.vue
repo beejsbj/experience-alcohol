@@ -24,8 +24,9 @@ const setColor = (color) => {
 <template>
   <div
     ref="rootRef"
-    class="absolute top-7 right-3 z-10 flex flex-col items-end gap-1"
-    :style="scatter(`swatch:${person.id}`, { r: 8, x: 2, y: 2 })"
+    class="absolute z-10 flex flex-col items-end gap-1"
+    style="top: 2px; right: 2px"
+    :style="{ ...scatter(`swatch:${person.id}`, { r: 8, x: 2, y: 2 }), top: '2px', right: '2px' }"
   >
     <button type="button" aria-label="Pick ink color" @click.stop="expanded = !expanded">
       <svg width="34" height="26" viewBox="0 0 34 26" aria-hidden="true">

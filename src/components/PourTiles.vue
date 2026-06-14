@@ -19,6 +19,21 @@ const showCustomSlip = ref(false);
 const customForm = reactive({ type: "", abvPercent: 8, volume: 6 });
 const customWriteOn = ref("");
 
+// The strength/pour values read as written-on, not typed-into: tap a bare
+// number to scratch a new one, same gesture as the weight on the receipt.
+const editingAbv = ref(false);
+const editingVol = ref(false);
+const abvInput = ref(null);
+const volInput = ref(null);
+const editAbv = () => {
+  editingAbv.value = true;
+  setTimeout(() => abvInput.value?.focus(), 50);
+};
+const editVol = () => {
+  editingVol.value = true;
+  setTimeout(() => volInput.value?.focus(), 50);
+};
+
 const drinks = computed(() => [...DRINKS, ...store.session.customDrinks]);
 const bac = computed(() =>
   calculateBACAtTime(store.eventsFor(props.person.id), props.person, now.value)
@@ -153,53 +168,62 @@ const saveCustom = () => {
       </div>
     </div>
 
-    <!-- Custom drink paper scrap -->
+    <!-- Custom drink paper scrap — scribbled, not a web form -->
     <div
       v-if="showCustomSlip"
       class="mt-3 p-3"
       style="background: var(--paper-shade); border: 1.5px solid var(--faded); border-radius: 4px;"
+      :style="scatter(`custom-slip:${person.id}`, { r: 0.6, x: 2, y: 1 })"
     >
       <p class="print text-[10px] tracking-widest mb-2" style="color: var(--faded)">HOUSE SPECIAL</p>
       <div class="flex flex-col gap-2">
-        <div>
-          <p class="print text-[9px] mb-0.5" style="color: var(--faded)">name it</p>
-          <WriteOn
-            v-model="customWriteOn"
-            :seed="`custom-name:${person.id}`"
-            placeholder="name it…"
-            class="text-lg"
+        <WriteOn
+          v-model="customWriteOn"
+          :seed="`custom-name:${person.id}`"
+          placeholder="name it…"
+          class="text-xl"
+        />
+
+        <!-- strength + pour, written by hand with unit hints in pen -->
+        <p class="scribble text-lg flex items-baseline gap-1 flex-wrap" style="color: var(--pen)">
+          <span v-if="!editingAbv" class="cursor-pointer underline-offset-4" @click="editAbv">{{ customForm.abvPercent }}</span>
+          <input
+            v-else
+            ref="abvInput"
+            v-model.number="customForm.abvPercent"
+            type="number"
+            min="1"
+            max="70"
+            step="0.5"
+            class="scribble bg-transparent outline-none text-center"
+            style="width: 2.4em; font-size: 16px; color: var(--pen)"
+            @blur="editingAbv = false"
+            @keydown.enter="editingAbv = false"
           />
-        </div>
-        <div class="flex gap-3">
-          <div>
-            <p class="print text-[9px] mb-0.5" style="color: var(--faded)">abv %</p>
-            <input
-              v-model.number="customForm.abvPercent"
-              type="number"
-              min="1"
-              max="70"
-              step="0.5"
-              class="print w-16 text-sm bg-transparent border-b border-[var(--faded)] outline-none"
-              placeholder="8"
-            />
-          </div>
-          <div>
-            <p class="print text-[9px] mb-0.5" style="color: var(--faded)">oz</p>
-            <input
-              v-model.number="customForm.volume"
-              type="number"
-              min="0.5"
-              max="24"
-              step="0.5"
-              class="print w-16 text-sm bg-transparent border-b border-[var(--faded)] outline-none"
-              placeholder="6"
-            />
-          </div>
-        </div>
-        <p class="scribble text-[11px]" style="color: var(--faded)">1 oz ≈ 30 ml</p>
+          <span class="text-base">% strong</span>
+          <span class="text-base" style="color: var(--faded)">·</span>
+          <span v-if="!editingVol" class="cursor-pointer underline-offset-4" @click="editVol">{{ customForm.volume }}</span>
+          <input
+            v-else
+            ref="volInput"
+            v-model.number="customForm.volume"
+            type="number"
+            min="0.5"
+            max="24"
+            step="0.5"
+            class="scribble bg-transparent outline-none text-center"
+            style="width: 2.4em; font-size: 16px; color: var(--pen)"
+            @blur="editingVol = false"
+            @keydown.enter="editingVol = false"
+          />
+          <span class="text-base">oz pour</span>
+        </p>
+
+        <p class="scribble text-[11px]" style="color: var(--faded)">1 oz ≈ 30 ml · tap a number to change it</p>
         <button
           type="button"
           class="stamp print self-start"
+          style="color: var(--pen)"
           @click="saveCustom"
         >
           ADD IT

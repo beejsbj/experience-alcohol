@@ -21,6 +21,9 @@ const reduced =
 const TOP_OFFSET = 34;
 const BOTTOM_CHROME = 96;
 
+// Pinch threshold: if currentDist / startDist drops below this, go to table
+const PINCH_SHRINK = 0.7;
+
 const stackEl = ref(null);
 const cardEls = ref({});
 
@@ -29,6 +32,11 @@ let minPan = 0;
 let drag = null;
 let animating = false;
 let suppressClick = false;
+
+// ── Multi-pointer tracking for pinch ──────────────────────────────────────
+// Map from pointerId → {x, y}
+const activePointers = new Map();
+let pinch = null; // { startDist, committed } when 2 pointers are active
 
 function setCardEl(id, el) {
   if (el) cardEls.value[id] = el;
@@ -78,7 +86,27 @@ function measure() {
 
 // ── Pointer drag ──────────────────────────────────────────────────────────
 function onPointerDown(e) {
-  if (animating || drag) return;
+  // Always track the pointer for pinch detection
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (activePointers.size === 2 && !pinch) {
+    // Entering a two-finger gesture — cancel any in-progress single-finger drag
+    if (drag) {
+      drag = null;
+      const top = topCardEl();
+      if (top) top.style.transition = "none";
+      applyStack(false);
+    }
+    // Record starting distance for pinch
+    const pts = [...activePointers.values()];
+    const dx = pts[1].x - pts[0].x;
+    const dy = pts[1].y - pts[0].y;
+    pinch = { startDist: Math.hypot(dx, dy), committed: false };
+    return;
+  }
+
+  // Single-pointer drag path
+  if (animating || drag || activePointers.size !== 1) return;
   const top = topCardEl();
   if (!top || !top.contains(e.target)) return;
   measure();
@@ -104,6 +132,36 @@ function onPointerDown(e) {
 }
 
 function onPointerMove(e) {
+  // Update pointer position for pinch tracking
+  if (activePointers.has(e.pointerId)) {
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  }
+
+  // Pinch gesture: 2 pointers active
+  if (pinch && activePointers.size === 2 && !pinch.committed) {
+    const pts = [...activePointers.values()];
+    const dx = pts[1].x - pts[0].x;
+    const dy = pts[1].y - pts[0].y;
+    const currentDist = Math.hypot(dx, dy);
+    const ratio = currentDist / pinch.startDist;
+
+    // Visual feedback: slightly scale the top card
+    const top = topCardEl();
+    if (top && !animating) {
+      const scale = Math.max(0.85, Math.min(1, ratio));
+      top.style.transition = "none";
+      top.style.transform = `scale(${scale.toFixed(3)})`;
+    }
+
+    // Commit pinch-to-table when sufficiently zoomed out
+    if (ratio < PINCH_SHRINK) {
+      pinch.committed = true;
+      tossToTable({ dx: 0, dy: 0, vx: 0, vy: 0 });
+    }
+    return;
+  }
+
+  // Single-pointer drag path
   if (!drag || e.pointerId !== drag.id) return;
   const now = performance.now();
   const dt = Math.max(1, now - drag.t);
@@ -126,6 +184,16 @@ function onPointerMove(e) {
 }
 
 function onPointerUp(e) {
+  activePointers.delete(e.pointerId);
+
+  // Clean up pinch state when fingers lift
+  if (pinch && activePointers.size < 2) {
+    pinch = null;
+    if (!animating) applyStack(true);
+    return;
+  }
+
+  // Single-pointer drag path
   if (!drag || e.pointerId !== drag.id) return;
   const d = drag;
   drag = null;
@@ -145,15 +213,20 @@ function onPointerUp(e) {
     solo: people.value.length < 2,
   });
 
-  if (result.action === "throw-left") return throwSideways(-1, d);
-  if (result.action === "throw-right") return throwSideways(1, d);
-  if (result.action === "to-table-up") return tossToTable(d);
-  if (result.action === "to-table-down") return setDownToTable();
+  if (result.action === "next") return flipToNext(d);
   panY = result.panY;
   applyStack(true);
 }
 
 function onPointerCancel(e) {
+  activePointers.delete(e.pointerId);
+
+  if (pinch && activePointers.size < 2) {
+    pinch = null;
+    if (!animating) applyStack(true);
+    return;
+  }
+
   if (!drag || e.pointerId !== drag.id) return;
   drag = null;
   applyStack(true);
@@ -168,19 +241,37 @@ function onClickCapture(e) {
 }
 
 // ── Release outcomes ──────────────────────────────────────────────────────
-function throwSideways(dir, d) {
+
+/**
+ * Fly the top card off along its release vector, then advance to the next
+ * person in the pile (always forward, wrapping).
+ */
+function flipToNext(d) {
   const n = people.value.length;
-  const next = people.value[(focusedIdx.value + (dir === -1 ? 1 : n - 1)) % n];
+  const nextPerson = people.value[(focusedIdx.value + 1) % n];
   const top = topCardEl();
   animating = true;
+
   if (reduced || !top) {
-    finishThrow(next, null);
+    finishThrow(nextPerson, null);
     return;
   }
-  const flyY = panY + d.dy + d.vy * 200;
-  top.style.transition = "transform 440ms ease-out";
-  top.style.transform = `translate(${dir * window.innerWidth * 1.3}px, ${flyY.toFixed(0)}px) rotate(${dir * 24}deg)`;
-  window.setTimeout(() => finishThrow(next, top), 440);
+
+  // Fly off along the release vector (dx/dy direction), scaled to leave the screen
+  const speed = Math.hypot(d.vx, d.vy);
+  // Normalise direction; fall back to a rightward exit if there's barely any movement
+  const mag = Math.hypot(d.dx, d.dy) || 1;
+  const nx = d.dx / mag;
+  const ny = d.dy / mag;
+  const flyDist = window.innerWidth * 1.4;
+  const flyX = nx * flyDist;
+  const flyY = ny * flyDist;
+  const rot = Math.sign(d.dx || d.vx || 1) * (18 + Math.min(speed * 20, 12));
+
+  top.style.transition = "transform 400ms ease-out, opacity 300ms ease";
+  top.style.transform = `translate(${flyX.toFixed(0)}px, ${flyY.toFixed(0)}px) rotate(${rot.toFixed(1)}deg)`;
+  top.style.opacity = "0.15";
+  window.setTimeout(() => finishThrow(nextPerson, top), 400);
 }
 
 function finishThrow(next, thrownEl) {
@@ -193,8 +284,8 @@ function finishThrow(next, thrownEl) {
       animating = false;
       return;
     }
-    // Park the thrown card at its new depth invisibly, then let the rest
-    // of the pile shuffle up with the spring while it fades back in.
+    // Park the thrown card at its new depth invisibly, then let the pile
+    // shuffle up with the spring while it fades back in.
     const idx = people.value.findIndex((p) => cardEls.value[p.id] === thrownEl);
     if (idx !== -1) {
       thrownEl.style.transition = "none";
@@ -219,17 +310,6 @@ function tossToTable(d) {
   top.style.transform = `translate(${(d.dx * 0.4).toFixed(0)}px, ${(panY + d.dy - window.innerHeight * 0.4).toFixed(0)}px) scale(0.32) rotate(${(d.vx * 30).toFixed(1)}deg)`;
   top.style.opacity = "0.25";
   window.setTimeout(() => emit("table"), 360);
-}
-
-function setDownToTable() {
-  animating = true;
-  if (reduced || !stackEl.value) {
-    emit("table");
-    return;
-  }
-  stackEl.value.style.transition = "transform 240ms ease-in";
-  stackEl.value.style.transform = `translateY(${window.innerHeight}px) scale(0.95)`;
-  window.setTimeout(() => emit("table"), 230);
 }
 
 // ── Focus changes from outside (dots, table pickup, person added) ─────────
@@ -306,7 +386,7 @@ function dotClick(person) {
       </div>
     </div>
 
-    <!-- Below-pile: page dots + swipe hint + table button -->
+    <!-- Below-pile: page dots + gesture hints + table button -->
     <div
       class="absolute bottom-0 left-0 right-0 flex flex-col items-center gap-2 pt-3 pb-4"
       style="z-index: 45; pointer-events: none"
@@ -330,7 +410,7 @@ function dotClick(person) {
           style="color: rgba(232, 163, 60, 0.7)"
           :style="hintStyle"
         >
-          swipe for {{ nextPerson.name?.trim() || '???' }} →
+          flick to flip →
         </span>
         <button
           type="button"
@@ -339,7 +419,7 @@ function dotClick(person) {
           :style="tableHintStyle"
           @click="emit('table')"
         >
-          the table ↓
+          pinch for the table ↓
         </button>
       </div>
     </div>

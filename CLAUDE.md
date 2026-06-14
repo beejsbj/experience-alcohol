@@ -37,9 +37,10 @@ all state in localStorage. Live at https://experience-alcohol.vercel.app.
   switches `ReceiptPile` ⇄ `TableView` via fade transition.
 - `src/components/ReceiptPile.vue` — the gesture heart. All receipts stacked
   absolutely; top card dragged 1:1 both axes via pointer events (no gesture
-  library, no native scrolling anywhere). Release → `decideRelease`: sideways
-  throw cycles people (left = next, right = previous), up-fling past the
-  paper's end or pull-down past its top tosses it onto the table view.
+  library, no native scrolling anywhere). Release → `decideRelease`: any
+  horizontal throw flips to the next receipt (wraps the pile); vertical drag is
+  reserved for scrolling/reading the paper and never flips. A two-pointer pinch
+  (zoom-out) tosses the pile onto the table view.
 - `src/components/PersonReceipt.vue` — one person's full receipt: masthead,
   identity, tally, rough chart, feeling + pinned-vibe sticker, stamp, pour
   stickers, ledger, small print.

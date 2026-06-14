@@ -113,7 +113,7 @@
       2% 6%, 5% 0, 95% 2%, 99% 8%,
       98% 92%, 94% 100%, 6% 98%, 1% 93%
     );
-    color: var(--greenink);
+    color: var(--pen);
     transition: transform 120ms ease;
   }
 

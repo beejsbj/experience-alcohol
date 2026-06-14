@@ -6,12 +6,9 @@ const props = defineProps({
   verdict: { type: String, required: true },
 });
 
-const tone = computed(() => {
-  if (props.verdict === "CUT OFF" || props.verdict === "SLOW DOWN") return "var(--redpen)";
-  if (props.verdict === "EASY NOW") return "#8a6d1c";
-  if (props.verdict === "ON PACE") return "var(--greenink)";
-  return "var(--print)";
-});
+// One ink on the paper: the verdict stamps in the person's chosen pen.
+// Emphasis comes from the words themselves, not a second colour.
+const tone = computed(() => "var(--pen)");
 
 const tiltStyle = computed(() => {
   const { transform } = scatter(props.verdict, { r: 4, x: 0, y: 0 });
