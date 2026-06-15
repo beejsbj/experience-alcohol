@@ -149,9 +149,11 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
 
       <!-- 4. Feeling block — the pinned vibe is punched in beside the word -->
       <div class="mt-3">
-        <div class="flex items-end gap-2 flex-wrap" :style="scatter(`feeling:${person.id}`, { r: 2.5, x: 5, y: 2 })">
+        <!-- No transform on this wrapper: a transformed ancestor would trap the
+             vibe menu's z-index and let later sections paint over it. -->
+        <div class="flex items-end gap-2 flex-wrap">
           <!-- big feeling state in Caveat -->
-          <div>
+          <div :style="scatter(`feeling:${person.id}`, { r: 2.5, x: 5, y: 2 })">
             <div class="flex items-baseline gap-1">
               <span class="scribble text-[11px]" style="color: var(--faded)">feeling:</span>
               <span class="scribble text-3xl font-bold" style="color: var(--pen)">{{ feeling.state.toLowerCase() }}</span>
@@ -202,7 +204,7 @@ const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, 
             <!-- Vibe menu — torn paper scrap -->
             <div
               v-if="vibeMenuOpen"
-              class="absolute left-0 top-full z-10 mt-1 p-3"
+              class="absolute left-0 top-full z-30 mt-1 p-3"
               style="background: var(--paper); border: 1.5px solid var(--faded); min-width: 180px; box-shadow: 0 4px 14px rgba(0,0,0,0.18);"
             >
               <button
