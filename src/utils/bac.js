@@ -43,7 +43,7 @@ export function calculateBACAtTime(
     const initial = calculateSingleDrinkBAC(
       person.weight,
       person.gender,
-      drink.alcoholContent,
+      drink.abv ?? drink.alcoholContent,
       drink.volume
     );
     const remaining = Math.max(
@@ -79,4 +79,25 @@ export function calculateTimeUntilNextDrink(
     );
   }
   return 0;
+}
+
+/**
+ * Project the BAC curve forward from a point in time (pure decay forecast).
+ * Returns [{ time, bac }], stopping early once the curve hits zero.
+ */
+export function projectBAC(
+  drinkHistory = [],
+  person,
+  { from = Date.now(), hours = 3, stepMinutes = 10 } = {}
+) {
+  const points = [];
+  const stepMs = stepMinutes * 60 * 1000;
+  const end = from + hours * 60 * 60 * 1000;
+
+  for (let time = from; time <= end; time += stepMs) {
+    const bac = calculateBACAtTime(drinkHistory, person, time);
+    points.push({ time, bac });
+    if (bac === 0 && time > from) break;
+  }
+  return points;
 }

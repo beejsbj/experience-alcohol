@@ -1,75 +1,53 @@
-# Experience Alcohol
+# Experience Alcohol — your tab
 
-A focused Vue app for live drink tracking. Log drinks for one or more people, keep an educational BAC estimate visible, and surface likely experience states as the session unfolds.
+A live drink tracker styled as a pile of paper receipts on a bar table. Log
+drinks with a tap, watch an estimated BAC drift in real time, and pin the vibe
+you want to hold tonight — the app times your next pour to keep you there.
 
-## What It Does
+**Live:** https://experience-alcohol.vercel.app —
+installable PWA, add it to your home screen.
 
-- Add and edit people in a live session
-- Log standard drinks in real time
-- Estimate current BAC from drink history
-- Show likely experience-state guidance inline
-- Keep the interface mobile-first and fast
+## How it works
 
-## Prerequisites
+- Every person gets a full-screen paper receipt. The pile is physical: the
+  paper follows your finger in both axes — throw it sideways for the next
+  person's tab, fling it up (or pull it down from the top) to set it on the
+  table for a birds-eye view of everyone, tap a scrap to pick it back up.
+- Drinks log from sticker pour strips stuck on the receipt; on cooldown they
+  gray out and a pencil hatch "dries" off as the wait runs down.
+- The receipt prints the facts (tally strokes, weight, the chart, the ledger
+  of every pour) and a human annotates them in ballpoint — arrows labeling
+  "drinks", "weight, kg", "you are here", "next pour".
+- Pin a vibe ("hold tipsy") — a sticker with a push pin through it next to the
+  feeling — and a rubber stamp judges the pace: ON PACE / EASY NOW /
+  SLOW DOWN / CUT OFF.
+- The rough chart draws the night: solid ink for the past, dashed for the
+  forecast, an amber dotted line for the vibe you're holding.
+- CLOSE TAB ends the night with a keepsake receipt.
 
-- Node.js (v14 or higher)
-- npm or yarn
+BAC is estimated with the Widmark formula. Everything stays in your browser's
+localStorage — no accounts, no server.
 
-## Installation
+## Development
 
-1. Clone the repository:
-
-```bash
-git clone [your-repo-url]
-cd alcohol-calculator-vue
-```
-
-2. Install dependencies:
-
-```bash
-npm install
-# or
-yarn install
-```
-
-3. Start the development server:
+Requires Node ≥ 20 (see `.nvmrc`) and [Bun](https://bun.sh).
 
 ```bash
-npm run dev
-# or
-yarn dev
+bun install
+bun run dev        # http://localhost:5174
+bun run test:run   # vitest
+bun run build      # production build (dist/)
 ```
 
-4. Open `http://localhost:5173`
+Deploys to Vercel (`bunx vercel deploy` for previews, `bunx vercel deploy --prod --yes` for production).
 
-## Building for Production
+Design specs and implementation plans live in `docs/superpowers/`.
 
-To create a production build:
+## The important note
 
-```bash
-npm run build
-# or
-yarn build
-```
-
-The built files will be in the `dist` directory.
-
-## Product Direction
-
-This repo is intentionally scoped to one job: a live drink tracker. Older simulator-style features have been removed so the UI and codebase stay focused.
-
-## Important Notes
-
-This tracker is for educational purposes only. Many factors can affect how alcohol impacts an individual, including:
-
-- Food consumption
-- Hydration levels
-- Sleep status
-- Medications
-- Individual metabolism differences
-- Overall health
-
-Always drink responsibly and never drive after drinking.
+This is an educational toy. Real impairment depends on food, hydration, sleep,
+medication, metabolism, and more. **Never use this to decide whether you can
+drive — the answer after drinking is no.**
 
 ## License
 
