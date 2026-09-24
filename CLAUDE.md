@@ -37,6 +37,16 @@ all state in localStorage. Live at https://experience-alcohol.vercel.app.
   Every person edit in the store must go through `touch()` so it carries a rev.
   `src/utils/scatter.js` — seeded jitter ("dried ink"): same seed → same
   wobble forever. **Never `Math.random()` in render paths.**
+- `src/stores/room.js` — the shared table. A room is one session shared by
+  every phone: each keeps a full copy, broadcasts the whole session
+  (debounced) on change, and folds others in via `mergeRemote`. Join link is
+  `/#t=<code>` (hash, so the code never reaches a server log); the joiner
+  adopts the table's session, stashing a solo night with pours under
+  `experience-alcohol:session:before-room`. `hello` messages say which
+  receipt each phone holds. Closing the tab sends a last snapshot and leaves.
+  Transport is `src/room/trysteroTransport.js` (Trystero, WebRTC data
+  channels, signaling over public Nostr relays, SDP encrypted with the room
+  code); tests swap in an in-memory bus.
 - `src/App.vue` — table background + canvas `BubbleField` + grain overlay,
   switches `ReceiptPile` ⇄ `TableView` via fade transition.
 - `src/components/ReceiptPile.vue` — the gesture heart. All receipts stacked
@@ -76,5 +86,5 @@ all state in localStorage. Live at https://experience-alcohol.vercel.app.
   history is the source of truth).
 - Branch `redesign/doodled-tab`, PR #2. Merge only with explicit user
   approval. Commit style: `feat:`/`fix:`/`polish:`/`docs:` one-liners.
-- Parked post-v1: multi-device rooms — decentralized P2P (Trystero-style
-  WebRTC, serverless signaling), no backend we run.
+- Rooms: no backend we run. Known limit — WebRTC without a TURN server can
+  fail across strict mobile carrier NATs; same wifi always works.
