@@ -102,4 +102,38 @@ describe("session store", () => {
       "experience-alcohol:fab-layout:v1"
     );
   });
+  it("gives torn receipts unique ids and stamps every edit", () => {
+    const store = useSessionStore();
+    const a = store.addPerson({ name: "sam" });
+    const b = store.addPerson({ name: "ria" });
+    expect(a).not.toBe(b);
+    expect(typeof a).toBe("string");
+    store.updatePerson(a, { weight: 64 });
+    expect(store.person(a).rev.by).toBe(store.deviceId);
+  });
+
+  it("two devices sharing a session converge through mergeRemote", () => {
+    const host = useSessionStore();
+    host.logDrink(1, { type: "beer", abv: 0.05, volume: 12 });
+    const snapshot = JSON.parse(JSON.stringify(host.session));
+
+    setActivePinia(createPinia());
+    globalThis.localStorage = createStorageMock();
+    const guest = useSessionStore();
+    guest.adoptSession(snapshot);
+    const me = guest.addPerson({ name: "guest" });
+    guest.logDrink(me, { type: "wine", abv: 0.12, volume: 5 });
+
+    expect(host.mergeRemote(JSON.parse(JSON.stringify(guest.session)))).toBe(true);
+    expect(host.session.events).toHaveLength(2);
+    expect(host.person(me).name).toBe("guest");
+    // Nothing new the second time round.
+    expect(host.mergeRemote(JSON.parse(JSON.stringify(guest.session)))).toBe(false);
+  });
+
+  it("ignores snapshots from a different session", () => {
+    const store = useSessionStore();
+    expect(store.mergeRemote({ ...store.session, id: "other", events: [{ id: "x" }] })).toBe(false);
+    expect(store.session.events).toHaveLength(0);
+  });
 });

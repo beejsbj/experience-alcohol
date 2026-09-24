@@ -3,21 +3,34 @@ import { computed, ref, watch } from "vue";
 import { MAINTAINABLE_STATES, PERSON_COLORS } from "../constants";
 import { calculateBACAtTime } from "../utils/bac";
 import { feelingFor } from "../utils/feelings";
+import { mergeSessions, sessionFingerprint } from "../utils/roomMerge";
 
 const STORAGE_KEY = "experience-alcohol:session:v2";
 const LEGACY_KEY = "experience-alcohol:fab-layout:v1";
+const DEVICE_KEY = "experience-alcohol:device";
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const getStorage = () => (typeof globalThis === "undefined" ? null : globalThis.localStorage ?? null);
 
-const buildPerson = (id, overrides = {}) => ({
+// One id per browser, so a room can tell whose edit came last.
+const loadDeviceId = () => {
+  const storage = getStorage();
+  const saved = storage?.getItem(DEVICE_KEY);
+  if (saved) return saved;
+  const id = `d-${uid()}`;
+  storage?.setItem(DEVICE_KEY, id);
+  return id;
+};
+
+const buildPerson = (id, overrides = {}, seat = 0) => ({
   id,
-  name: `guest ${id}`,
+  name: "guest",
   weight: 78,
   gender: "male",
-  color: PERSON_COLORS[(id - 1) % PERSON_COLORS.length],
+  color: PERSON_COLORS[seat % PERSON_COLORS.length],
   pinnedState: null,
   active: true,
+  joinedAt: Date.now() + seat,
   ...overrides,
 });
 
@@ -36,13 +49,16 @@ const migrateLegacy = (raw) => {
     if (!Array.isArray(legacy?.people) || !legacy.people.length) return null;
 
     const people = legacy.people.map((person, index) =>
-      buildPerson(Number(person.id) || index + 1, {
-        name: person.name || `guest ${index + 1}`,
-        weight: Number(person.weight) || 78,
-        gender: person.gender === "female" ? "female" : "male",
-        color: PERSON_COLORS[index % PERSON_COLORS.length],
-        pinnedState: person.maintainTargetState ?? null,
-      })
+      buildPerson(
+        Number(person.id) || index + 1,
+        {
+          name: person.name || `guest ${index + 1}`,
+          weight: Number(person.weight) || 78,
+          gender: person.gender === "female" ? "female" : "male",
+          pinnedState: person.maintainTargetState ?? null,
+        },
+        index
+      )
     );
     const events = Object.entries(legacy.liveDrinkTracking ?? {}).flatMap(
       ([personId, tracking]) =>
@@ -99,6 +115,7 @@ const loadSession = () => {
 };
 
 export const useSessionStore = defineStore("session", () => {
+  const deviceId = loadDeviceId();
   const session = ref(loadSession());
   const focusedPersonId = ref(session.value.people.find((p) => p.active)?.id ?? 1);
   const lastTab = ref(null);
@@ -111,16 +128,26 @@ export const useSessionStore = defineStore("session", () => {
       .filter((event) => event.personId === personId)
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
+  // Every edit to a person stamps a rev, so a room merge keeps the newest.
+  const touch = (target) => {
+    target.rev = { t: Date.now(), by: deviceId };
+  };
+
   function addPerson(overrides = {}) {
-    const id = Math.max(0, ...session.value.people.map((p) => p.id)) + 1;
-    session.value.people.push(buildPerson(id, overrides));
+    // Random ids: two phones tearing a receipt at once must not collide.
+    const id = `p-${uid()}`;
+    const added = buildPerson(id, overrides, session.value.people.length);
+    touch(added);
+    session.value.people.push(added);
     focusedPersonId.value = id;
     return id;
   }
 
   function updatePerson(id, updates) {
     const target = person(id);
-    if (target) Object.assign(target, updates, { id });
+    if (!target) return;
+    Object.assign(target, updates, { id });
+    touch(target);
   }
 
   function deactivatePerson(id) {
@@ -128,6 +155,7 @@ export const useSessionStore = defineStore("session", () => {
     const target = person(id);
     if (!target) return false;
     target.active = false;
+    touch(target);
     if (focusedPersonId.value === id) focusedPersonId.value = activePeople.value[0].id;
     return true;
   }
@@ -142,6 +170,7 @@ export const useSessionStore = defineStore("session", () => {
     target.pinnedState = MAINTAINABLE_STATES.some((s) => s.state === stateName)
       ? stateName
       : null;
+    touch(target);
   }
 
   function logDrink(personId, drink) {
@@ -198,6 +227,24 @@ export const useSessionStore = defineStore("session", () => {
     focusedPersonId.value = carryOver[0]?.id ?? 1;
   }
 
+  // Fold another device's copy of this session into ours. Returns true when
+  // anything changed.
+  function mergeRemote(remote) {
+    if (!remote || remote.id !== session.value.id) return false;
+    const before = sessionFingerprint(session.value);
+    const merged = mergeSessions(session.value, remote);
+    if (sessionFingerprint(merged) === before) return false;
+    session.value = merged;
+    if (!person(focusedPersonId.value)?.active) focusedPersonId.value = activePeople.value[0]?.id;
+    return true;
+  }
+
+  // Swap in a whole session, e.g. the one a room already shares.
+  function adoptSession(next) {
+    session.value = next;
+    focusedPersonId.value = activePeople.value[0]?.id ?? null;
+  }
+
   function dismissLastTab() {
     lastTab.value = null;
   }
@@ -212,6 +259,7 @@ export const useSessionStore = defineStore("session", () => {
   );
 
   return {
+    deviceId,
     session,
     focusedPersonId,
     lastTab,
@@ -226,6 +274,8 @@ export const useSessionStore = defineStore("session", () => {
     logDrink,
     addCustomDrink,
     closeTab,
+    mergeRemote,
+    adoptSession,
     dismissLastTab,
   };
 });
