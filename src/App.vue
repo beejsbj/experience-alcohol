@@ -1,6 +1,7 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useSessionStore } from "./stores/session";
+import { useRoomStore } from "./stores/room";
 import { calculateBACAtTime } from "./utils/bac";
 import { useLiveNow } from "./composables/useLiveNow";
 import BubbleField from "./components/BubbleField.vue";
@@ -9,6 +10,7 @@ import TableView from "./components/TableView.vue";
 import CloseTab from "./components/CloseTab.vue";
 
 const store = useSessionStore();
+const room = useRoomStore();
 const now = useLiveNow();
 
 const view = ref("deck"); // 'deck' | 'table'
@@ -26,6 +28,14 @@ const bubbleIntensity = computed(() => {
 
 const showTable = () => { view.value = "table"; };
 const showDeck = () => { view.value = "deck"; };
+
+// Arriving by a friend's link: wait at the table view until it shows up.
+onMounted(() => room.resume());
+watch(
+  () => room.awaitingTable,
+  (waiting) => { if (waiting) view.value = "table"; },
+  { immediate: true }
+);
 </script>
 
 <template>
