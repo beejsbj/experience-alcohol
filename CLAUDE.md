@@ -11,7 +11,7 @@ all state in localStorage. Live at https://experience-alcohol.vercel.app.
   command with:
   `export PATH="$HOME/.nvm/versions/node/v22.14.0/bin:$PATH" && `
 - Package manager: **Bun** (`bun.lockb`). Never commit a `package-lock.json`.
-- Tests: `bunx vitest run` (36 tests across 5 files, all green expected).
+- Tests: `bunx vitest run` (all green expected).
 - Dev server: port 5174 (`.claude/launch.json` has the preview config).
 - Deploy: Vercel CLI, project `beejsbjs-projects/experience-alcohol`. Hashed
   deployment URLs are SSO-gated; the public URL only updates via
@@ -31,6 +31,10 @@ all state in localStorage. Live at https://experience-alcohol.vercel.app.
   `src/utils/feelings.js` — feeling states, pace stamps, next-pour timing.
   `src/utils/pileGestures.js` — `decideRelease()`: all drag-release thresholds
   for the pile (pure, tested).
+  `src/utils/roomMerge.js` — `mergeSessions()`: deterministic merge of two
+  copies of one session (pours/custom drinks union by id, people
+  last-writer-wins on `rev {t, by}`, seated by `joinedAt`). Pure, tested.
+  Every person edit in the store must go through `touch()` so it carries a rev.
   `src/utils/scatter.js` — seeded jitter ("dried ink"): same seed → same
   wobble forever. **Never `Math.random()` in render paths.**
 - `src/App.vue` — table background + canvas `BubbleField` + grain overlay,
