@@ -154,7 +154,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
           OPEN LATE · POUR KIND · GO HOME SAFE
         </p>
         <Doodle v-if="marks[0]" class="absolute -left-2 -top-4" :seed="`${person.id}:0`" v-bind="marks[0]" />
-        <Doodle v-if="marks[1]" class="absolute right-1 top-7" :seed="`${person.id}:1`" v-bind="marks[1]" />
+        <Doodle v-if="marks[1]" class="absolute right-3 top-7" :seed="`${person.id}:1`" v-bind="marks[1]" />
       </header>
 
       <div class="rule mt-3"></div>
@@ -184,7 +184,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
             <p class="pen pen--hard text-[54px] leading-[0.78]">{{ feeling.state.toLowerCase() }}</p>
             <FeelingUnderline :seed="`${person.id}:${feeling.state}`" :bac="bac" :nudge="underlineNudge" class="mt-0.5" />
           </button>
-          <Doodle v-if="marks[3]" class="absolute -top-5 right-0" :seed="`${person.id}:3`" v-bind="marks[3]" />
+          <Doodle v-if="marks[3]" class="absolute -top-5 right-4" :seed="`${person.id}:3`" v-bind="marks[3]" />
 
           <div class="relative mt-3 flex items-end justify-between gap-2">
             <div class="flex items-end gap-1.5">
@@ -263,7 +263,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
         <div class="relative mt-4">
           <Barcode :seed="`${store.session.id}:${person.id}`" />
           <Doodle v-if="marks[5]" class="absolute left-0 top-1" :seed="`${person.id}:5`" v-bind="marks[5]" />
-          <Doodle v-if="marks[6]" class="absolute right-0 top-0" :seed="`${person.id}:6`" v-bind="marks[6]" />
+          <Doodle v-if="marks[6]" class="absolute right-2 top-0" :seed="`${person.id}:6`" v-bind="marks[6]" />
         </div>
         <p class="print mt-3 text-center text-[8.5px] leading-[1.6]" style="letter-spacing: 0.16em; color: var(--print-soft)">
           ESTIMATES ONLY · NEVER A REASON TO DRIVE<br />
