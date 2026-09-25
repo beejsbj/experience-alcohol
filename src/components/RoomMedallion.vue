@@ -75,7 +75,7 @@ const leave = () => {
       </button>
     </div>
 
-    <p class="display mt-9 text-center text-3xl" :style="{ color: room.status === 'connected' ? 'var(--gold)' : 'var(--bone-2)' }">
+    <p class="display mt-9 text-balance text-center text-3xl" :style="{ color: room.status === 'connected' ? 'var(--gold)' : 'var(--bone-2)' }">
       {{ who }}
     </p>
     <p v-if="room.error" class="mono mt-2 text-center text-xs" style="color: var(--blood)">

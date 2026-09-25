@@ -36,6 +36,7 @@ const pin = (state) => {
         :style="{ animationDelay: `${80 + i * 70}ms`, marginLeft: `${i * 14}px` }"
         @click="pin(s.state)"
       >
+        <span v-if="person.pinnedState === s.state" class="plate plate--gold slab held-tag"><span>holding</span></span>
         <span class="display block text-[2.9rem] leading-[0.95]">{{ s.state.toLowerCase() }}</span>
         <span class="mono mt-2 block text-xs" style="color: var(--bone-2)">
           {{ BLURBS[s.state] }} · {{ s.minBAC.toFixed(2) }}–{{ s.maxBAC.toFixed(2) }}%
@@ -61,14 +62,20 @@ const pin = (state) => {
   padding: 0;
   animation: rise-in 320ms var(--ease-out) both;
 }
-.vibe.is-held .display {
-  color: var(--gold);
-  text-shadow: 0 0 24px rgba(231, 184, 76, 0.45);
+/* Type sits on the dark and on the blood slash alike: keep it bone, shadowed */
+.vibe .display,
+.vibe .mono {
+  text-shadow: 0 2px 14px rgba(7, 6, 10, 0.75);
 }
-.vibe.is-held .display::before {
-  content: "✦ ";
-  font-style: normal;
-  font-size: 0.5em;
-  vertical-align: middle;
+.vibe.is-held .display {
+  text-decoration: underline;
+  text-decoration-color: var(--gold);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 0.18em;
+}
+.held-tag {
+  font-size: 0.8rem;
+  margin: 0 0 0.5rem 4px;
+  box-shadow: 3px 3px 0 var(--lead);
 }
 </style>
