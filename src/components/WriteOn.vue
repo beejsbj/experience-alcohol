@@ -35,14 +35,14 @@ const focusInput = () => {
 
 <template>
   <span class="relative inline-block" @click="focusInput">
-    <span class="scribble" :class="{ 'cursor-text': editable }">
+    <span class="pen" :class="{ 'cursor-text': editable }">
       <span
         v-for="(entry, index) in chars"
         :key="index"
         class="write-on-char"
         :style="entry.style"
       >{{ entry.char }}</span>
-      <span v-if="!modelValue && !focused" class="scribble" style="color: var(--faded)">{{ placeholder }}</span>
+      <span v-if="!modelValue && !focused" style="color: var(--faded)">{{ placeholder }}</span>
       <span
         v-if="focused"
         style="display:inline-block;width:2px;height:1em;background:var(--pen);vertical-align:-2px;animation:none"

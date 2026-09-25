@@ -115,14 +115,17 @@ const chart = computed(() => {
     }
     loop = `M${pts.join(" L")}`;
 
-    const fut = mine.series.future;
-    const mid = fut[Math.floor(fut.length / 2)] ?? null;
-    const climbing = mid && mid.bac > mine.series.past.at(-1).bac + 0.0005;
+    // Absorption is instant in this model, so "climbing" never happens;
+    // speak to how fresh the last pour is instead.
+    const events = store.eventsFor(props.person.id);
+    const last = events.at(-1);
+    const sinceLast = last ? (now.value - new Date(last.timestamp).getTime()) / 60000 : Infinity;
+    const level = mine.series.past.at(-1).bac;
     const noteY = cy < PAD.top + 26 ? cy + 26 : cy - 16;
     note = {
       x: Math.min(cx + 12, W - PAD.right - 36),
       y: noteY,
-      text: climbing ? "still climbing" : mine.series.past.at(-1).bac > 0.001 ? "you, easing off" : "you",
+      text: sinceLast < 15 ? "you — fresh one" : level > 0.001 ? "you, easing off" : "you",
     };
   }
 

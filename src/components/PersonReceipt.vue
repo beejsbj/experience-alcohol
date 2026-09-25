@@ -15,6 +15,7 @@ import ThermalChart from "./ThermalChart.vue";
 import VibeScale from "./VibeScale.vue";
 import StampVerdict from "./StampVerdict.vue";
 import Barcode from "./Barcode.vue";
+import InkArrow from "./InkArrow.vue";
 
 const props = defineProps({
   person: { type: Object, required: true },
@@ -168,9 +169,10 @@ const underline = computed(() => {
         <div class="mt-1.5">
           <VibeScale :person="person" />
         </div>
-        <p v-if="!person.pinnedState" class="pen -mt-1 text-center text-[19px]" style="opacity: 0.7">
-          circle one to hold it
-        </p>
+        <div v-if="!person.pinnedState" class="-mt-1 flex items-center justify-center gap-1" style="opacity: 0.75">
+          <InkArrow :seed="`circle-hint:${person.id}`" dir="left" :width="26" :height="18" />
+          <p class="pen text-[19px]">circle one to hold it</p>
+        </div>
       </section>
 
       <!-- ── ledger ──────────────────────────────────────────── -->
