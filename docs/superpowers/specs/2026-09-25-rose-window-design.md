@@ -1,7 +1,7 @@
 # The Rose Window — a fresh visual design and UX
 
 **Date:** 2026-09-25
-**Status:** In progress on `redesign/rose-window`. Burooj asked for "a completely
+**Status:** Proposed on `redesign/rose-window` (PR against `main`). Burooj asked for "a completely
 fresh visual design/UX … using my project and visual ideas as a seed."
 **Replaces:** the receipt UI entirely. Stores, BAC maths, feelings, and rooms are
 untouched and still authoritative.
@@ -35,7 +35,11 @@ Each person's night is a **backlit stained-glass rose window** in a dark nave.
   in the jewel colour of the last drink poured: beer gold `#E7B84C`, wine
   ruby `#B5222B`, cocktail violet `#7B3A8C`, shot ice `#BFEAF2`, anything
   else emerald `#1F8A66`.
-- **Pinned vibe** is a gold halo ring. The **forecast** is a dashed line of
+- The tracery: twelve stone **mullions** (one per hour) and a **pointed
+  arch** closing each petal at the rim, with lead between the half hours
+  running up to each arch's point.
+- **Pinned vibe** gilds the two lead rings that bound that feeling (snapped
+  by `haloRange`), over a faint gold band. The **forecast** is a dashed line of
   glass not yet made. Each **pour** is a jewel set in the rim at its time.
   Roman numerals mark the hours; a bone hand points to now, with a pulsing
   "you are here" jewel.
@@ -58,7 +62,8 @@ is the Persona label; `.sheet` is the full-screen overlay with a blood slash.
 ## Screens
 
 - **Night view** (`NightView.vue`): a name plate (tap → person menu), roundels
-  of everyone's mini windows plus `+` and TABLE; the window (swipe sideways to
+  (`RoseIcon.vue`: each person's hub quatrefoil in their current glass, with
+  their initial — a full window is unreadable at 32px) plus `+` and TABLE; the window (swipe sideways to
   change person); the feeling word (tap → vibe sheet); the verdict plate and
   next-pour line; the pour row.
 - **Pour row** (`PourRow.vue`): gothic **lancet** windows of each drink's glass.
@@ -81,6 +86,17 @@ is the Persona label; `.sheet` is the full-screen overlay with a blood slash.
 ## Pure modules (tested)
 
 - `src/utils/dial.js`: clock-face geometry (`angleAt`, `bandPath`,
-  `linePath`, `ringSpot`).
+  `linePath`, `archSpandrel`, `uprightRotation`, `ringSpot`).
 - `src/utils/window.js`: `windowModel`, `feelingScale`, `traceryCells`,
-  `paneBands`, `GLASS`.
+  `paneBands`, `haloRange`, `GLASS`.
+
+## Motion
+
+- Entrance (night view only): lead draws in, unlit glass fades up ring by
+  ring, the night's panes light in time order with a sheen flare, then the
+  jewels set, the halo, hand and hub. It ends when its own animations finish.
+- Pour: a glass drop flies from the lancet, the lit glass blooms (brightest
+  in the pane the pour landed in), a ring of the drink's colour leaves the
+  hub, the new jewel sets in the rim.
+- `prefers-reduced-motion`: durations and delays drop to zero; bloom, ring
+  and the "you are here" pulse are off.
