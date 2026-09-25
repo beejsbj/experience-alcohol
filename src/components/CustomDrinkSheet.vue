@@ -80,7 +80,10 @@ const pour = () => {
   background: none;
   border: 0;
   color: var(--gold);
+  font-family: var(--font-mono);
+  font-weight: 700;
   font-size: 2rem;
   width: 2rem;
+  line-height: 1;
 }
 </style>

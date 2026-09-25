@@ -3,6 +3,15 @@ import { computed, ref } from "vue";
 import { encode } from "uqr";
 import { useRoomStore } from "../stores/room";
 import { triggerHaptic } from "../utils/haptics";
+import { polar } from "../utils/dial";
+import { GLASS } from "../utils/window";
+
+// Twelve jewels round the rim, one per hour, in the bar's glass.
+const JEWELS = [GLASS.beer, GLASS.wine, GLASS.cocktail, GLASS.shot, GLASS.custom];
+const jewels = Array.from({ length: 12 }, (_, h) => {
+  const at = polar(150, 150, 136, ((h + 0.5) / 12) * Math.PI * 2);
+  return { key: h, x: at.x, y: at.y, fill: JEWELS[h % JEWELS.length] };
+});
 
 // The table's invitation: a QR set into a medallion, like a boss in a vault.
 const emit = defineEmits(["close"]);
@@ -60,6 +69,7 @@ const leave = () => {
         <circle cx="150" cy="150" r="146" class="medallion__stone" />
         <circle cx="150" cy="150" r="146" class="medallion__edge" />
         <circle cx="150" cy="150" r="136" class="medallion__gold" />
+        <circle v-for="j in jewels" :key="j.key" :cx="j.x" :cy="j.y" r="4.5" :fill="j.fill" class="medallion__jewel" />
         <rect x="58" y="58" width="184" height="184" fill="var(--bone)" rx="2" />
         <svg x="66" y="66" width="168" height="168" :viewBox="`0 0 ${qr.size} ${qr.size}`" shape-rendering="crispEdges">
           <path :d="qr.path" fill="var(--lead)" />
@@ -105,6 +115,7 @@ const leave = () => {
 }
 .medallion__stone { fill: var(--stone); }
 .medallion__edge { fill: none; stroke: var(--lead); stroke-width: 6; }
+.medallion__jewel { stroke: var(--lead); stroke-width: 1.5; }
 .medallion__gold { fill: none; stroke: var(--gold); stroke-width: 2; stroke-dasharray: 2 7; stroke-linecap: round; }
 @keyframes medallion-in {
   from { opacity: 0; transform: rotate(-40deg) scale(0.8); }

@@ -133,7 +133,10 @@ const done = () => {
   background: none;
   border: 0;
   color: var(--gold);
+  font-family: var(--font-mono);
+  font-weight: 700;
   font-size: 2.4rem;
   width: 2.4rem;
+  line-height: 1;
 }
 </style>
