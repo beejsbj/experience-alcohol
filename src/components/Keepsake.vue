@@ -68,6 +68,24 @@ const save = async (entry, index) => {
     ctx.font = "28px 'JetBrains Mono'";
     ctx.fillStyle = "rgba(245,241,232,0.6)";
     ctx.fillText(`${entry.drinks} poured · ${duration.value} · ${dateLine.value.toLowerCase()}`, 90, 1268);
+    ctx.font = "20px 'JetBrains Mono'";
+    ctx.fillStyle = "rgba(245,241,232,0.34)";
+    ctx.fillText("estimates only · never a reason to drive", 90, 1316);
+
+    // The Persona plate, tilted, top left: the keepsake's title card
+    ctx.save();
+    ctx.translate(70, 58);
+    ctx.rotate((-3 * Math.PI) / 180);
+    ctx.font = "40px Anton";
+    const label = "THE NIGHT, IN GLASS";
+    const w = ctx.measureText(label).width + 44;
+    ctx.fillStyle = "#07060a";
+    ctx.fillRect(8, 8, w, 62);
+    ctx.fillStyle = "#e7b84c";
+    ctx.fillRect(0, 0, w, 62);
+    ctx.fillStyle = "#07060a";
+    ctx.fillText(label, 22, 47);
+    ctx.restore();
 
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
     const file = new File([blob], `night-${(entry.name || "glass").trim() || "glass"}.png`, { type: "image/png" });
@@ -122,8 +140,8 @@ function inlineStyles(source, target) {
           <span class="mono mt-1 block text-[11px]" style="color: var(--bone-2)">
             {{ entry.drinks }} poured · peak {{ entry.peakBAC.toFixed(3) }}%
           </span>
-          <button type="button" class="save mono" @click="save(entry, i)">
-            {{ saving === i ? "setting the glass…" : "save this window ↓" }}
+          <button type="button" class="save plate plate--dark slab" @click="save(entry, i)">
+            <span>{{ saving === i ? "setting the glass…" : "save this window" }}</span>
           </button>
         </figcaption>
       </figure>
@@ -165,11 +183,8 @@ function inlineStyles(source, target) {
   margin-top: 1rem;
 }
 .save {
-  margin-top: 0.8rem;
-  background: none;
+  margin: 1.1rem 0 0 6px;
+  font-size: 1.1rem;
   border: 0;
-  padding: 0;
-  color: var(--gold);
-  font-size: 12px;
 }
 </style>
