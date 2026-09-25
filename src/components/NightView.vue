@@ -8,6 +8,7 @@ import { CUTOFF_BAC, feelingFor, nextPourMinutes, stampFor, targetDetails } from
 import { DRINKS } from "../constants";
 import { windowModel } from "../utils/window";
 import RoseWindow from "./RoseWindow.vue";
+import RoseIcon from "./RoseIcon.vue";
 import PourRow from "./PourRow.vue";
 import VibeSheet from "./VibeSheet.vue";
 import PersonMenu from "./PersonMenu.vue";
@@ -126,7 +127,7 @@ watch(() => person.value.id, () => { vibeOpen.value = false; });
           :aria-label="`${p.name || 'someone'}'s window`"
           @click="pick(p.id)"
         >
-          <RoseWindow :person="p" :events="store.eventsFor(p.id)" :now="now" detail="mini" />
+          <RoseIcon :person="p" :events="store.eventsFor(p.id)" :now="now" />
         </button>
         <button type="button" class="roundel roundel--add slab" aria-label="someone new" @click="addPerson">+</button>
         <button type="button" class="table-btn slab" @click="emit('table')">
@@ -134,6 +135,8 @@ watch(() => person.value.id, () => { vibeOpen.value = false; });
         </button>
       </div>
     </header>
+
+    <div class="spacer" aria-hidden="true" />
 
     <!-- The window -->
     <div
@@ -151,7 +154,7 @@ watch(() => person.value.id, () => { vibeOpen.value = false; });
           class="stage__window"
           :style="{ transform: `translateX(${dx}px) rotate(${dx / 40}deg)`, transition: dx ? 'none' : undefined }"
         >
-          <RoseWindow :person="person" :events="events" :now="now" />
+          <RoseWindow :person="person" :events="events" :now="now" intro />
         </div>
       </Transition>
       <p v-if="seatNote(person)" class="seat mono">{{ seatNote(person) }}</p>
@@ -178,6 +181,8 @@ watch(() => person.value.id, () => { vibeOpen.value = false; });
       <p class="mono verdict__next">{{ nextPour }}</p>
     </section>
     <p v-else class="mono verdict__next px-6" style="color: var(--bone-2)">{{ nextPour }}</p>
+
+    <div class="spacer spacer--low" aria-hidden="true" />
 
     <PourRow class="night__pours" :person="person" :target="windowEl" />
 
@@ -221,8 +226,8 @@ watch(() => person.value.id, () => { vibeOpen.value = false; });
   border: 0;
 }
 .roundel {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -232,8 +237,8 @@ watch(() => person.value.id, () => { vibeOpen.value = false; });
 }
 .roundel.is-current {
   opacity: 1;
-  transform: scale(1.18);
-  box-shadow: 0 0 0 2px var(--gold);
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(231, 184, 76, 0.35);
 }
 .roundel--add {
   border: 1.5px dashed var(--bone-3);
@@ -277,6 +282,9 @@ watch(() => person.value.id, () => { vibeOpen.value = false; });
 }
 .stage__window {
   position: relative;
+  /* As big as the screen allows while the pours stay in reach */
+  width: min(100%, max(236px, calc(100dvh - 340px)));
+  margin: 0 auto;
   transition: transform 380ms var(--ease-spring);
   animation: window-in 700ms var(--ease-out) backwards;
 }
@@ -337,9 +345,15 @@ watch(() => person.value.id, () => { vibeOpen.value = false; });
   line-height: 1.4;
   color: var(--bone-2);
 }
+.spacer {
+  flex: 1 1 0;
+  min-height: 0.4rem;
+}
+.spacer--low {
+  flex-grow: 1.6;
+}
 .night__pours {
-  margin-top: auto;
-  padding-top: 1.1rem;
+  padding-top: 0.6rem;
 }
 .fineprint {
   text-align: center;
@@ -357,7 +371,7 @@ watch(() => person.value.id, () => { vibeOpen.value = false; });
   transition: opacity 220ms ease, transform 260ms var(--ease-out);
 }
 @keyframes window-in {
-  from { opacity: 0; transform: scale(0.92) rotate(-8deg); }
-  to { opacity: 1; transform: scale(1) rotate(0); }
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
 }
 </style>
