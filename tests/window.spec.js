@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GLASS, LEAD_RINGS, feelingScale, paneBands, traceryCells, windowModel } from "../src/utils/window";
+import { GLASS, LEAD_RINGS, SCALE_MAX, feelingScale, haloRange, paneBands, traceryCells, windowModel } from "../src/utils/window";
 
 const person = { weight: 70, gender: "female" };
 const t = (h, m = 0) => new Date(2026, 8, 24, h, m).getTime();
@@ -71,5 +71,14 @@ describe("paneBands", () => {
     expect(bands[0][0]).toBe(0);
     expect(bands.at(-1)[1]).toBe(0.05);
     expect(bands).toHaveLength(LEAD_RINGS.filter((r) => r < 0.05).length + 1);
+  });
+});
+
+describe("haloRange", () => {
+  it("snaps the pinned vibe to the lead rings around it", () => {
+    expect(haloRange(null)).toBeNull();
+    expect(haloRange({ minBAC: 0.04, maxBAC: 0.06 })).toEqual({ from: 0.04, to: 0.07 });
+    expect(haloRange({ minBAC: 0.01, maxBAC: 0.03 })).toEqual({ from: 0.01, to: 0.04 });
+    expect(haloRange({ minBAC: 0.13, maxBAC: 0.15 })).toEqual({ from: 0.13, to: SCALE_MAX });
   });
 });

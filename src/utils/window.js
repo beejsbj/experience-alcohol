@@ -57,7 +57,7 @@ export const traceryCells = () => {
         from: STOPS[ring],
         to: STOPS[ring + 1],
         glass: UNLIT[Math.floor(rand() * UNLIT.length)],
-        shade: 0.07 + rand() * 0.08,
+        shade: 0.08 + rand() * 0.1,
       });
     }
   }
@@ -127,4 +127,14 @@ export function paneBands(bac) {
   const bands = [];
   for (let i = 0; i < edges.length - 1; i += 1) bands.push([edges[i], edges[i + 1]]);
   return bands;
+}
+
+// The pinned vibe as a band of the window, snapped to the lead rings: from the
+// ring where the feeling begins to the ring where the next one does.
+export function haloRange(target) {
+  if (!target) return null;
+  const stops = [0, ...LEAD_RINGS, SCALE_MAX];
+  const from = Math.min(target.minBAC, SCALE_MAX);
+  const to = stops.find((s) => s > target.maxBAC + 1e-9) ?? SCALE_MAX;
+  return { from, to };
 }

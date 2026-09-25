@@ -115,7 +115,7 @@ function inlineStyles(source, target) {
         :data-keepsake="i"
         :style="{ animationDelay: `${150 + i * 120}ms` }"
       >
-        <RoseWindow :person="entry.person" :events="entry.events" :now="closedAt" />
+        <RoseWindow :person="entry.person" :events="entry.events" :now="closedAt" :show-forecast="false" />
         <figcaption>
           <span class="slab block text-3xl">{{ entry.name?.trim() || "someone" }}</span>
           <span class="display block text-2xl">peaked {{ entry.peakState.toLowerCase() }}</span>

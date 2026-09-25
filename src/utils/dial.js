@@ -98,3 +98,31 @@ export function ringSpot(eventId, { cx, cy, field }) {
 // Hour ticks around the rim for a 12-hour face.
 export const hourTicks = () =>
   Array.from({ length: 12 }, (_, h) => ({ hour: h === 0 ? 12 : h, angle: (h / 12) * TAU }));
+
+// The spandrel above a pointed gothic arch: the stone between the arch and the
+// rim, for one petal of the window from angle a0 to a1. The arch springs from
+// the petal's two mullions at rSpring and meets in a point at rOuter, midway.
+export function archSpandrel(a0, a1, rSpring, rOuter, { cx, cy }) {
+  const am = (a0 + a1) / 2;
+  const rise = rOuter - rSpring;
+  const p = (r, a) => {
+    const { x, y } = polar(cx, cy, r, a);
+    return `${fmt(x)} ${fmt(y)}`;
+  };
+  const edge = rOuter + 3; // tuck under the rim so no glass shows past it
+  return [
+    `M${p(rSpring, a0)}`,
+    `C${p(rSpring + rise * 0.62, a0)} ${p(rOuter - rise * 0.2, am - (am - a0) * 0.42)} ${p(rOuter, am)}`,
+    `C${p(rOuter - rise * 0.2, am + (a1 - am) * 0.42)} ${p(rSpring + rise * 0.62, a1)} ${p(rSpring, a1)}`,
+    `L${p(edge, a1)}`,
+    `A${edge} ${edge} 0 0 0 ${p(edge, a0)}`,
+    "Z",
+  ].join(" ");
+}
+
+// Rotation in degrees for a label set radially at `angle`, flipped on the
+// lower half of the face so it never reads upside down.
+export const uprightRotation = (angle) => {
+  const deg = ((((angle * 180) / Math.PI) % 360) + 360) % 360;
+  return deg > 90 && deg < 270 ? deg - 180 : deg;
+};

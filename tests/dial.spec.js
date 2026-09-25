@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { angleAt, angleSpan, areaPath, bandPath, makeScale, polar, ringSpot } from "../src/utils/dial";
+import { angleAt, angleSpan, archSpandrel, areaPath, bandPath, makeScale, polar, ringSpot, uprightRotation } from "../src/utils/dial";
 
 const at = (h, m = 0) => new Date(2026, 8, 24, h, m).getTime();
 
@@ -44,5 +44,25 @@ describe("dial geometry", () => {
     expect(a).toEqual(b);
     expect(Math.hypot(a.x - 100, a.y - 100)).toBeLessThanOrEqual(40);
     expect(ringSpot("pour-2", { cx: 100, cy: 100, field: 40 })).not.toEqual(a);
+  });
+});
+
+describe("tracery", () => {
+  it("closes each spandrel between the arch and the rim", () => {
+    const d = archSpandrel(0, Math.PI / 6, 120, 158, { cx: 200, cy: 200 });
+    expect(d.startsWith("M")).toBe(true);
+    expect(d.match(/C/g)).toHaveLength(2);
+    expect(d.endsWith("Z")).toBe(true);
+    // the arch's point sits on the rim, midway across the petal
+    const apex = polar(200, 200, 158, Math.PI / 12);
+    expect(d).toContain(`${Number(apex.x.toFixed(2))} ${Number(apex.y.toFixed(2))}`);
+  });
+
+  it("keeps rim labels upright on the lower half of the face", () => {
+    expect(uprightRotation(0)).toBe(0);
+    expect(uprightRotation(Math.PI / 2)).toBeCloseTo(90);
+    expect(uprightRotation(Math.PI)).toBeCloseTo(0);
+    expect(uprightRotation((7 / 6) * Math.PI)).toBeCloseTo(30);
+    expect(uprightRotation((3 / 2) * Math.PI)).toBeCloseTo(270);
   });
 });
