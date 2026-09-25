@@ -1,10 +1,11 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
-import "@fontsource/space-mono/400.css";
-import "@fontsource/space-mono/700.css";
-import "@fontsource/caveat/500.css";
-import "@fontsource/caveat/700.css";
+import "@fontsource-variable/bodoni-moda/opsz-italic.css";
+import "@fontsource-variable/bodoni-moda/opsz.css";
+import "@fontsource/anton/400.css";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/700.css";
 import "./assets/main.css";
 
 const app = createApp(App);

@@ -1,35 +1,14 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
-import { useSessionStore } from "./stores/session";
+import { onMounted, ref, watch } from "vue";
 import { useRoomStore } from "./stores/room";
-import { calculateBACAtTime } from "./utils/bac";
-import { useLiveNow } from "./composables/useLiveNow";
-import BubbleField from "./components/BubbleField.vue";
-import ReceiptPile from "./components/ReceiptPile.vue";
-import TableView from "./components/TableView.vue";
-import CloseTab from "./components/CloseTab.vue";
+import NightView from "./components/NightView.vue";
+import TableWall from "./components/TableWall.vue";
+import Keepsake from "./components/Keepsake.vue";
 
-const store = useSessionStore();
 const room = useRoomStore();
-const now = useLiveNow();
+const view = ref("night"); // 'night' | 'table'
 
-const view = ref("deck"); // 'deck' | 'table'
-
-const focusedPerson = computed(() => store.person(store.focusedPersonId));
-const bubbleIntensity = computed(() => {
-  if (!focusedPerson.value) return 0;
-  const bac = calculateBACAtTime(
-    store.eventsFor(focusedPerson.value.id),
-    focusedPerson.value,
-    now.value
-  );
-  return Math.min(1, bac / 0.12);
-});
-
-const showTable = () => { view.value = "table"; };
-const showDeck = () => { view.value = "deck"; };
-
-// Arriving by a friend's link: wait at the table view until it shows up.
+// Arriving by a friend's link: wait at the table until it shows up.
 onMounted(() => room.resume());
 watch(
   () => room.awaitingTable,
@@ -39,31 +18,42 @@ watch(
 </script>
 
 <template>
-  <div class="relative w-full overflow-hidden" style="min-height: 100dvh; background: var(--table);">
-    <!-- Canvas bubble field behind everything -->
-    <BubbleField :intensity="bubbleIntensity" style="z-index: 0;" />
-    <div class="table-grain" style="z-index: 1;" aria-hidden="true"></div>
-
-    <!-- Main content layer -->
-    <div class="relative" style="z-index: 2;">
-      <Transition name="view-fade" mode="out-in">
-        <ReceiptPile v-if="view === 'deck'" @table="showTable" />
-        <TableView v-else @pickup="showDeck" />
-      </Transition>
-    </div>
-
-    <!-- Keepsake overlay (on top of everything) -->
-    <CloseTab />
+  <div class="app">
+    <div class="shaft" aria-hidden="true" />
+    <div class="nave-grain" aria-hidden="true" />
+    <Transition name="view" mode="out-in">
+      <NightView v-if="view === 'night'" @table="view = 'table'" />
+      <TableWall v-else @open="view = 'night'" />
+    </Transition>
+    <Keepsake />
   </div>
 </template>
 
 <style scoped>
-.view-fade-enter-active,
-.view-fade-leave-active {
-  transition: opacity 180ms ease;
+.app {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: var(--nave);
 }
-.view-fade-enter-from,
-.view-fade-leave-to {
+/* A shaft of light falling from high up in the nave */
+.shaft {
+  position: fixed;
+  inset: -10% 0 auto;
+  height: 80vh;
+  pointer-events: none;
+  background: radial-gradient(ellipse 60% 70% at 50% 0%, rgba(245, 241, 232, 0.07), transparent 70%);
+}
+.view-enter-active,
+.view-leave-active {
+  transition: opacity 200ms ease, transform 240ms var(--ease-out);
+}
+.view-enter-from {
   opacity: 0;
+  transform: scale(0.97);
+}
+.view-leave-to {
+  opacity: 0;
+  transform: scale(1.03);
 }
 </style>

@@ -208,6 +208,9 @@ export const useSessionStore = defineStore("session", () => {
         );
         return {
           name: p.name,
+          // enough to redraw their window on the keepsake
+          person: { ...p },
+          events: events.map((event) => ({ ...event })),
           drinks: events.length,
           peakBAC,
           peakState: feelingFor(peakBAC).state,

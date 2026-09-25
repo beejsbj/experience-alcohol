@@ -2,17 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * The rose window. A dark nave; each person's night is a backlit window of
+ * stained glass. Three voices:
+ *   display (Bodoni Moda, italic) — the night announces how it feels
+ *   slab (Anton, caps, tilted)     — the bar warns and labels, Persona-loud
+ *   mono (JetBrains Mono, small)   — the maths whispers its estimates
+ */
 :root {
-  --table: #3a2e24;
-  --paper: #fafaf7;
-  --paper-shade: #efefea;
-  --ink: #1c1c1a;
-  --print: #3a3a35;
-  --faded: #8a8a82;
-  --pen: #2b3a8f;
-  --redpen: #c92a1d;
-  --greenink: #1c8a3c;
-  --amber: #e8a33c;
+  --nave: #0b0a10;
+  --stone: #16131d;
+  --stone-2: #211c2a;
+  --lead: #07060a;
+  --bone: #f5f1e8;
+  --bone-2: rgba(245, 241, 232, 0.62);
+  --bone-3: rgba(245, 241, 232, 0.34);
+  --gold: #e7b84c;
+  --blood: #d0121c;
+  --ice: #bfeaf2;
+
+  --font-display: "Bodoni Moda Variable", "Bodoni 72", Didot, serif;
+  --font-slab: "Anton", Impact, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  color-scheme: dark;
 }
 
 @layer base {
@@ -23,219 +39,152 @@
   }
 
   body {
-    background: var(--table);
-    color: var(--ink);
-    font-family: "Space Mono", monospace;
+    background: var(--nave);
+    color: var(--bone);
+    font-family: var(--font-mono);
     -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
     overflow: hidden;
   }
 
   button {
     touch-action: manipulation;
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: var(--gold);
+    color: var(--lead);
+  }
+
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
   }
 }
 
 @layer components {
-  .table-grain {
+  .display {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 96;
+    letter-spacing: -0.02em;
+  }
+
+  .slab {
+    font-family: var(--font-slab);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    line-height: 0.9;
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "zero" 1;
+  }
+
+  /* A Persona-style label: a tilted black block with a blood offset behind. */
+  .plate {
+    position: relative;
+    display: inline-block;
+    padding: 0.28em 0.6em 0.22em;
+    background: var(--bone);
+    color: var(--lead);
+    transform: rotate(-3deg) skewX(-6deg);
+    box-shadow: 5px 5px 0 var(--blood);
+  }
+  .plate > * {
+    display: inline-block;
+    transform: skewX(6deg);
+  }
+  .plate--dark {
+    background: var(--lead);
+    color: var(--bone);
+    box-shadow: 5px 5px 0 var(--blood), 0 0 0 1.5px var(--bone-3);
+  }
+  .plate--blood {
+    background: var(--blood);
+    color: var(--bone);
+    box-shadow: 5px 5px 0 var(--lead);
+  }
+  .plate--gold {
+    background: var(--gold);
+    color: var(--lead);
+    box-shadow: 5px 5px 0 var(--lead);
+  }
+
+  /* Stone wall texture behind everything */
+  .nave-grain {
     position: fixed;
     inset: 0;
     pointer-events: none;
-    opacity: 0.1;
+    opacity: 0.09;
     mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
-  .pile-card {
-    position: absolute;
-    left: 50%;
-    top: 34px;
-    width: min(100vw - 24px, 420px);
-    margin-left: calc(min(100vw - 24px, 420px) / -2);
-    will-change: transform;
-    cursor: grab;
-  }
-
-  .pile-card:active {
-    cursor: grabbing;
-  }
-
-  .print {
-    font-family: "Space Mono", monospace;
-  }
-
-  .scribble {
-    font-family: "Caveat", cursive;
-  }
-
-  .receipt-paper {
-    position: relative;
-    background: var(--paper);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-    clip-path: polygon(
-      0 0, 100% 0, 100% calc(100% - 9px),
-      96% 100%, 90% calc(100% - 8px), 84% 100%, 78% calc(100% - 9px),
-      72% 100%, 66% calc(100% - 7px), 60% 100%, 54% calc(100% - 9px),
-      48% 100%, 42% calc(100% - 8px), 36% 100%, 30% calc(100% - 9px),
-      24% 100%, 18% calc(100% - 7px), 12% 100%, 6% calc(100% - 9px), 0 100%
-    );
-  }
-
-  .masthead {
-    font-size: 0.5rem;
-    letter-spacing: 0.2em;
-    text-align: center;
-    color: var(--faded);
-  }
-
-  .stamp {
-    display: inline-block;
-    border: 2.5px solid currentColor;
-    border-radius: 4px 6px 3px 7px / 6px 3px 7px 4px;
-    padding: 1px 8px;
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-  }
-
-  .sticker {
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    width: 100%;
-    padding: 9px 2px 7px;
-    background: #fffef6;
-    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
-    clip-path: polygon(
-      2% 6%, 5% 0, 95% 2%, 99% 8%,
-      98% 92%, 94% 100%, 6% 98%, 1% 93%
-    );
-    color: var(--pen);
-    transition: transform 120ms ease;
-  }
-
-  .sticker:active {
-    transform: scale(0.92);
-  }
-
-  .sticker--drying {
-    color: #9a9a92;
-  }
-
-  .sticker--strip {
-    width: auto;
-    padding: 3px 16px 4px;
-  }
-
-  .sticker--ghost {
-    background: transparent;
-    filter: none;
-    clip-path: none;
-    border: 2px dashed var(--faded);
-    color: var(--faded);
-  }
-
-  .sticker__hatch {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: repeating-linear-gradient(
-      115deg,
-      rgba(60, 60, 55, 0.22) 0 2px,
-      transparent 2px 5px
-    );
-    clip-path: inset(0 0 0 calc((1 - var(--cd, 0)) * 100%));
-  }
-
-  .sticker__label {
-    font-family: "Space Mono", monospace;
-    font-size: 0.55rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-  }
-
-  .ink-blot {
-    width: 1.6rem;
-    height: 1.6rem;
-    border-radius: 50%;
-    border: 2px solid transparent;
-  }
-
-  .ink-blot--active {
-    border-color: var(--ink);
-  }
-
-  .write-on-char {
-    display: inline-block;
-    animation: char-in 90ms ease-out both;
-  }
-
-  .keepsake {
+  /* Full-screen overlay: the Persona menu and the room medallion */
+  .sheet {
     position: fixed;
     inset: 0;
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(20, 14, 8, 0.55);
-    padding: 1.2rem;
+    z-index: 40;
+    background: rgba(7, 6, 10, 0.94);
+    overflow-y: auto;
+    padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem max(2rem, env(safe-area-inset-bottom));
+    animation: sheet-in 260ms var(--ease-out) both;
+  }
+  .sheet::before {
+    content: "";
+    position: fixed;
+    inset: -20% -40%;
+    background: linear-gradient(-28deg, transparent 46%, var(--blood) 46%, var(--blood) 61%, transparent 61%);
+    opacity: 0.9;
+    pointer-events: none;
+    z-index: -1;
+    animation: slash-in 380ms var(--ease-out) both;
   }
 
-  .page-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: rgba(232, 163, 60, 0.35);
+  /* A bare field: type sits on the dark with only an underline of lead-light */
+  .bare-input {
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid var(--bone-3);
+    color: inherit;
+    font: inherit;
+    outline: none;
+    padding: 0 0 0.1em;
+    width: 100%;
+    border-radius: 0;
   }
-
-  .page-dot--active {
-    background: var(--amber);
+  .bare-input:focus {
+    border-bottom-color: var(--gold);
   }
 }
 
-@keyframes char-in {
-  from {
-    opacity: 0;
-    transform: translateY(3px) rotate(3deg) scale(1.3);
-  }
+@keyframes sheet-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-
-@keyframes scrap-in {
-  from {
-    transform: translateY(-14px) rotate(3deg);
-    opacity: 0;
-  }
+@keyframes slash-in {
+  from { transform: translateX(-30%); }
+  to { transform: translateX(0); }
 }
-
-@keyframes pin-drop {
-  0% {
-    transform: translateY(-18px) scale(1.4);
-    opacity: 0;
-  }
-  60% {
-    transform: translateY(1px) scale(0.96);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(0) scale(1);
-  }
+/* `translate`, not `transform`, so tilted plates keep their tilt */
+@keyframes rise-in {
+  from { opacity: 0; translate: 0 14px; }
+  to { opacity: 1; translate: 0 0; }
 }
-
-@keyframes receipt-in {
-  from {
-    transform: translateY(40px) rotate(4deg);
-    opacity: 0;
-  }
+@keyframes stamp-in {
+  0% { opacity: 0; transform: rotate(-3deg) skewX(-6deg) scale(1.5); }
+  60% { opacity: 1; transform: rotate(-3deg) skewX(-6deg) scale(0.94); }
+  100% { opacity: 1; transform: rotate(-3deg) skewX(-6deg) scale(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation: none !important;
-    transition: none !important;
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
   }
 }
