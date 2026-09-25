@@ -94,7 +94,9 @@ function flyGlass(from, color) {
         <path d="M34 2 L34 118 M2 70 L66 70" class="lancet__lead" />
         <path :d="ARCH" class="lancet__frame" />
       </svg>
-      <span v-if="waitLabel(drink)" class="lancet__wait mono">{{ waitLabel(drink) }}</span>
+      <span v-if="waitLabel(drink)" class="lancet__wait mono">
+        <small>{{ waitLabel(drink) === "no" ? "not" : "wait" }}</small>{{ waitLabel(drink) === "no" ? "now" : waitLabel(drink) }}
+      </span>
       <span class="lancet__name slab">{{ drink.type }}</span>
     </button>
 
@@ -113,14 +115,21 @@ function flyGlass(from, color) {
 <style scoped>
 .pour-row {
   display: flex;
-  gap: 10px;
+  justify-content: safe center;
+  gap: 8px;
   overflow-x: auto;
-  padding: 6px 20px 4px;
+  padding: 6px 16px 4px;
   scroll-snap-type: x proximity;
+  scroll-padding-inline: 16px;
+  /* a long row runs off the edge like a wall of windows, not a clipped box */
+  mask-image: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 12px), transparent);
 }
 .lancet {
   position: relative;
-  flex: 0 0 62px;
+  /* share the width; past seven drinks the row scrolls */
+  flex: 1 1 0;
+  min-width: 46px;
+  max-width: 64px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -136,7 +145,7 @@ function flyGlass(from, color) {
   transform: translateY(3px) scale(0.96);
 }
 .lancet__glass {
-  width: 62px;
+  width: 100%;
   height: auto;
   overflow: visible;
 }
@@ -156,22 +165,37 @@ function flyGlass(from, color) {
 .lancet:not(.is-waiting) .lancet__glass {
   filter: drop-shadow(0 0 12px rgba(255, 230, 170, 0.18));
 }
+/* Waiting: the glass goes dark, like the unlit panes of the window */
 .lancet.is-waiting .lancet__pane {
-  opacity: 0.42;
+  opacity: 0.3;
+}
+.lancet.is-waiting .lancet__name {
+  color: var(--bone-2);
 }
 .lancet__wait {
   position: absolute;
-  top: 46px;
+  top: 34%;
   left: 0;
   right: 0;
-  text-align: center;
-  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 13px;
   font-weight: 700;
+  line-height: 1.1;
   color: var(--bone);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+.lancet__wait small {
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  color: var(--bone-2);
 }
 .lancet__name {
-  font-size: 13px;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 .lancet__empty {
   fill: none;
