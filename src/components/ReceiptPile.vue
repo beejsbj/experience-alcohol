@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useSessionStore } from "../stores/session";
-import { scatter, scatterRand } from "../utils/scatter";
+import { scatterRand } from "../utils/scatter";
 import { decideRelease } from "../utils/pileGestures";
 import PersonReceipt from "./PersonReceipt.vue";
 import PourMat from "./PourMat.vue";

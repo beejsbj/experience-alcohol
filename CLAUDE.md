@@ -1,7 +1,7 @@
 # experience-alcohol
 
-Drink-tracker PWA styled as a pile of hand-annotated paper receipts on a bar
-table. Vue 3 (script setup) + Pinia + Tailwind 3 + Vite 5 + Vitest. No backend:
+Drink-tracker PWA styled as a pile of hand-annotated thermal receipts on a
+lamp-lit oak bar top ("Last Call", v3). Vue 3 (script setup) + Pinia + Tailwind 3 + Vite 5 + Vitest. No backend:
 all state in localStorage. Live at https://experience-alcohol.vercel.app.
 
 ## Environment (read first)
@@ -37,6 +37,10 @@ all state in localStorage. Live at https://experience-alcohol.vercel.app.
   Every person edit in the store must go through `touch()` so it carries a rev.
   `src/utils/scatter.js` — seeded jitter ("dried ink"): same seed → same
   wobble forever. **Never `Math.random()` in render paths.**
+  `src/utils/paper.js` — `tornEdge()` (seeded clip-path teeth), `barcode()`,
+  `ringFor()` (where a pour's glass ring sits and how wet it still is). Pure,
+  tested. `src/utils/receipt.js` — `standardDrinks`, `peakBAC`, `tabNumbers`,
+  `clock`. Pure, tested.
 - `src/stores/room.js` — the shared table. A room is one session shared by
   every phone: each keeps a full copy, broadcasts the whole session
   (debounced) on change, and folds others in via `mergeRemote`. Join link is
@@ -47,41 +51,56 @@ all state in localStorage. Live at https://experience-alcohol.vercel.app.
   Transport is `src/room/trysteroTransport.js` (Trystero, WebRTC data
   channels, signaling over public Nostr relays, SDP encrypted with the room
   code); tests swap in an in-memory bus.
-- `src/App.vue` — table background + canvas `BubbleField` + grain overlay,
-  switches `ReceiptPile` ⇄ `TableView` via fade transition.
+- `src/App.vue` — `BarTop` (oak planks, `RingStains`, lamp, `LampDust`
+  canvas, BAC-driven vignette via `--drunk`) behind everything; switches
+  `ReceiptPile` ⇄ `TableView` via fade transition.
 - `src/components/ReceiptPile.vue` — the gesture heart. All receipts stacked
   absolutely; top card dragged 1:1 both axes via pointer events (no gesture
   library, no native scrolling anywhere). Release → `decideRelease`: any
   horizontal throw flips to the next receipt (wraps the pile); vertical drag is
   reserved for scrolling/reading the paper and never flips. A two-pointer pinch
-  (zoom-out) tosses the pile onto the table view.
-- `src/components/PersonReceipt.vue` — one person's full receipt: masthead,
-  identity, tally, rough chart, feeling + pinned-vibe sticker, stamp, pour
-  stickers, ledger, small print.
-- Supporting: `InkArrow.vue` (seeded hand-drawn annotation arrows),
-  `ColorScribble.vue` (corner color picker), `PourTiles.vue` (sticker pour
-  strips + cooldown hatch), `RoughChart.vue`, `TallyStrokes.vue`,
-  `WriteOn.vue`, `PushPin.vue`, `StampVerdict.vue`, `TableView.vue`,
-  `CloseTab.vue`, `BubbleField.vue` (only canvas in the app).
+  (zoom-out) tosses the pile onto the table view. The top card gets
+  `.is-lifted` while dragged (bigger shadow). `PourMat` sits fixed at the
+  bottom for the focused person; the paper scrolls until it clears it.
+- `src/components/PersonReceipt.vue` — one person's thermal receipt inside
+  `ReceiptPaper`: dot-matrix masthead, TBL/TAB/OPEN line, guest + name + tally,
+  feeling headline + BAC + stamp + next-pour note, `ThermalChart`, `VibeScale`
+  (circle one to hold it), ledger, totals, barcode, small print, scissor
+  close-tab line.
+- `src/components/PourMat.vue` — rubber bar mat of top-down glasses
+  (`GlassTopDown.vue`); a glass's fill is the pace (drains on pour, refills
+  over the wait). `NapkinSlip.vue` writes a house special.
+- Supporting: `ReceiptPaper.vue` (torn, lit paper), `ThermalChart.vue`,
+  `VibeScale.vue`, `StampVerdict.vue` (grit-masked rubber stamp),
+  `Barcode.vue`, `ColorScribble.vue` (pen-test squiggle — tap cycles ink),
+  `IdentityLine.vue`, `InkArrow.vue`, `TallyStrokes.vue`, `WriteOn.vue`,
+  `TableView.vue` (tossed mini receipts, coaster invite, receipt printer),
+  `RoomSlip.vue` (the QR coaster), `CloseTab.vue` (PAID keepsake),
+  `LampDust.vue` (only canvas in the app).
 
 ## Design rules (user's taste — enforced)
 
 - Nothing may look like a web element or form. No visible scrollbars, ever.
-- Two fonts only: Space Mono (the receipt *prints* facts) and Caveat (a human
-  *annotates* in pen). Printed values stand bare; handwriting labels them with
-  arrows — never captions like "drinks:".
-- Randomness must be structural and seeded (scatter.js), not decorative.
-- Palette in `src/assets/main.css` `:root`: paper `#FAFAF7`, ink, faded print,
-  pen blue, red pen, green ink, amber (amber only on the dark table, never on
-  paper as fill).
+- Two voices: the printer (Martian Mono condensed `.print`, Doto dot matrix
+  `.dots` for big numbers) states facts; a human (Nanum Pen Script `.pen`)
+  annotates. Printed labels only where a real receipt prints them (GUEST,
+  POURS, TAB №); the pen never writes captions like "drinks:". Arrows
+  sparingly.
+- Everything is lit by one lamp: paper, wood, glass. Objects, not cards.
+- Randomness must be structural and seeded (scatter.js / paper.js), not
+  decorative.
+- Palette in `src/assets/main.css` `:root`: warm thermal paper, print ink,
+  faded print, the person's pen, oak/lamp/brass for the table, amber (amber
+  only on the dark table — hints, mat labels — never on paper).
+- Spec for the current look: `docs/superpowers/specs/2026-09-25-last-call-v3-design.md`.
 - Reference for drag feel: tinder-style card stack — paper follows the finger,
   velocity decides the throw.
 
 ## Docs & history
 
 - Specs: `docs/superpowers/specs/` (v1 doodled-tab → v2 receipt-deck →
-  v2.1 receipt-pile addendum; each supersedes the visual layer of the last,
-  logic/PWA sections of v1 still authoritative).
+  v2.1 receipt-pile → v2.2 polish → v3 last call; each supersedes the visual
+  layer of the last, logic/PWA sections of v1 still authoritative).
 - Plans: `docs/superpowers/plans/` (executed; checkboxes not ticked — git
   history is the source of truth).
 - Branch `redesign/doodled-tab`, PR #2. Merge only with explicit user
