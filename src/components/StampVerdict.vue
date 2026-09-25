@@ -1,25 +1,31 @@
 <script setup>
 import { computed } from "vue";
-import { scatter } from "../utils/scatter";
+import { scatterRand } from "../utils/scatter";
 
+// A rubber stamp slammed onto the paper in the person's ink. Uneven inking
+// comes from the grit mask; the tilt is seeded per verdict so a given
+// verdict always lands the same way.
 const props = defineProps({
   verdict: { type: String, required: true },
+  size: { type: Number, default: 13 },
 });
 
-// One ink on the paper: the verdict stamps in the person's chosen pen.
-// Emphasis comes from the words themselves, not a second colour.
-const tone = computed(() => "var(--pen)");
-
-const tiltStyle = computed(() => {
-  const { transform } = scatter(props.verdict, { r: 4, x: 0, y: 0 });
-  return { transform };
+const tilt = computed(() => {
+  const rand = scatterRand(`stamp:${props.verdict}`);
+  return `${(-3 - rand() * 7).toFixed(1)}deg`;
 });
 </script>
 
 <template>
-  <Transition name="thump" mode="out-in">
-    <span :key="verdict" class="stamp print" :style="{ color: tone, ...tiltStyle }">
-      {{ verdict }}
-    </span>
-  </Transition>
+  <span
+    :key="verdict"
+    class="stamp"
+    :style="{
+      color: 'var(--pen)',
+      fontSize: `${size}px`,
+      '--tilt': tilt,
+      transform: `rotate(${tilt})`,
+      animation: 'stamp-thump 360ms cubic-bezier(.3,1.4,.5,1) both',
+    }"
+  >{{ verdict }}</span>
 </template>

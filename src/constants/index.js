@@ -8,10 +8,10 @@ export const BAC_CONSTANTS = {
   },
 };
 
-// Ink tones a person can claim for their line/avatar.
-// Amber is reserved for the dark table chrome — it's too pale to read as pen
-// on the cream paper, so it's not a selectable ink.
-export const PERSON_COLORS = ["#C7521F", "#8C9A54", "#2B3A8F", "#B85C7A"];
+// Pens on the bar: the inks a person can claim for their receipt. Real
+// ballpoint and felt-tip colours, dark enough to read on thermal paper under a
+// warm lamp. Amber is reserved for the dark table, never ink on paper.
+export const PERSON_COLORS = ["#C7521F", "#2B3A8F", "#2F6B45", "#8A3A78", "#1F6F7A"];
 
 export const DRINKS = [
   { type: "beer", abv: 0.05, volume: 12 },

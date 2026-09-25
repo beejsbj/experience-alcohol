@@ -1,10 +1,11 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
-import "@fontsource/space-mono/400.css";
-import "@fontsource/space-mono/700.css";
-import "@fontsource/caveat/500.css";
-import "@fontsource/caveat/700.css";
+// The printer: a condensed thermal mono, and dot matrix for its big numbers.
+import "@fontsource-variable/martian-mono/wdth.css";
+import "@fontsource/doto/latin-900.css";
+// The pen: a real ballpoint hand.
+import "@fontsource/nanum-pen-script/latin-400.css";
 import "./assets/main.css";
 
 const app = createApp(App);

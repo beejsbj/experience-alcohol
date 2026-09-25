@@ -4,6 +4,7 @@ import { useSessionStore } from "../stores/session";
 import { scatter, scatterRand } from "../utils/scatter";
 import { decideRelease } from "../utils/pileGestures";
 import PersonReceipt from "./PersonReceipt.vue";
+import PourMat from "./PourMat.vue";
 
 const emit = defineEmits(["table"]);
 const store = useSessionStore();
@@ -18,8 +19,8 @@ const reduced =
   typeof matchMedia !== "undefined" &&
   matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-const TOP_OFFSET = 34;
-const BOTTOM_CHROME = 96;
+// Room the bar mat takes at the bottom; the paper scrolls until it clears it.
+const BOTTOM_CHROME = 132;
 
 // Pinch threshold: if currentDist / startDist drops below this, go to table
 const PINCH_SHRINK = 0.7;
@@ -81,7 +82,7 @@ function applyStack(animated) {
 function measure() {
   const el = topCardEl();
   if (!el) return;
-  minPan = Math.min(0, window.innerHeight - TOP_OFFSET - BOTTOM_CHROME - el.offsetHeight);
+  minPan = Math.min(0, window.innerHeight - el.offsetTop - BOTTOM_CHROME - el.offsetHeight);
 }
 
 // ── Pointer drag ──────────────────────────────────────────────────────────
@@ -173,9 +174,10 @@ function onPointerMove(e) {
   drag.dx = e.clientX - drag.x0;
   drag.dy = e.clientY - drag.y0;
   if (!drag.moved && Math.hypot(drag.dx, drag.dy) < 6) return;
-  drag.moved = true;
   const top = topCardEl();
   if (!top) return;
+  if (!drag.moved) top.classList.add("is-lifted");
+  drag.moved = true;
   let ny = panY + drag.dy;
   if (ny > 0) ny *= 0.55;
   if (ny < minPan) ny = minPan + (ny - minPan) * 0.55;
@@ -197,6 +199,7 @@ function onPointerUp(e) {
   if (!drag || e.pointerId !== drag.id) return;
   const d = drag;
   drag = null;
+  topCardEl()?.classList.remove("is-lifted");
   if (!d.moved) return;
   suppressClick = true;
   setTimeout(() => {
@@ -229,6 +232,7 @@ function onPointerCancel(e) {
 
   if (!drag || e.pointerId !== drag.id) return;
   drag = null;
+  topCardEl()?.classList.remove("is-lifted");
   applyStack(true);
 }
 
@@ -349,18 +353,13 @@ onBeforeUnmount(() => {
   window.removeEventListener("resize", onResize);
 });
 
-// ── Bottom chrome ─────────────────────────────────────────────────────────
+// ── Chrome on the wood ────────────────────────────────────────────────────
+const focusedPerson = computed(() => people.value[focusedIdx.value] ?? null);
 const nextPerson = computed(() => {
   if (people.value.length < 2) return null;
   return people.value[(focusedIdx.value + 1) % people.value.length];
 });
-
-const hintStyle = computed(() => scatter(`swipe-hint:${store.session.id}`, { r: 1.5, x: 3, y: 1 }));
-const tableHintStyle = computed(() => scatter(`table-hint:${store.session.id}`, { r: 1, x: 2, y: 1 }));
-
-function dotClick(person) {
-  if (person.id !== store.focusedPersonId) store.setFocus(person.id);
-}
+const nextName = computed(() => nextPerson.value?.name?.trim() || "the next one");
 </script>
 
 <template>
@@ -382,46 +381,36 @@ function dotClick(person) {
         :ref="(el) => setCardEl(person.id, el)"
         class="pile-card"
       >
-        <PersonReceipt :person="person" :is-new="false" />
+        <PersonReceipt :person="person" />
       </div>
     </div>
 
-    <!-- Below-pile: page dots + gesture hints + table button -->
+    <!-- Notes on the wood above the paper (under it, once it slides up) -->
     <div
-      class="absolute bottom-0 left-0 right-0 flex flex-col items-center gap-2 pt-3 pb-4"
-      style="z-index: 45; pointer-events: none"
+      class="absolute inset-x-0 top-0 flex items-center justify-between px-5"
+      style="z-index: 30; height: calc(46px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top)"
     >
-      <div v-if="people.length > 1" class="flex items-center gap-2" style="pointer-events: auto">
-        <button
-          v-for="p in people"
-          :key="p.id"
-          type="button"
-          class="page-dot transition-all"
-          :class="{ 'page-dot--active': p.id === store.focusedPersonId }"
-          :aria-label="`Go to ${p.name || 'unnamed'}`"
-          @click="dotClick(p)"
-        />
-      </div>
-
-      <div class="flex items-center gap-4" style="pointer-events: auto">
-        <span
-          v-if="nextPerson"
-          class="scribble text-xs"
-          style="color: rgba(232, 163, 60, 0.7)"
-          :style="hintStyle"
-        >
-          flick to flip →
-        </span>
-        <button
-          type="button"
-          class="scribble text-xs"
-          style="color: rgba(232, 163, 60, 0.85)"
-          :style="tableHintStyle"
-          @click="emit('table')"
-        >
-          pinch for the table ↓
-        </button>
-      </div>
+      <button
+        v-if="nextPerson"
+        type="button"
+        class="pen text-[21px]"
+        style="color: var(--amber-soft); -webkit-text-stroke: 0; transform: rotate(-2deg)"
+        @click="store.setFocus(nextPerson.id)"
+      >
+        flick for {{ nextName }} →
+      </button>
+      <span v-else></span>
+      <button
+        type="button"
+        class="pen text-[21px]"
+        style="color: var(--amber-soft); -webkit-text-stroke: 0; transform: rotate(1.5deg)"
+        @click="emit('table')"
+      >
+        pinch for the table ⤡
+      </button>
     </div>
+
+    <!-- The bar mat: glasses to pour for whoever's on top -->
+    <PourMat v-if="focusedPerson" :key="focusedPerson.id" :person="focusedPerson" />
   </div>
 </template>
