@@ -34,11 +34,21 @@ const buildPerson = (id, overrides = {}, seat = 0) => ({
   ...overrides,
 });
 
+// A fresh face at the table: nothing assumed. The receipt asks for a name,
+// a body for the math and a weight before the first pour (`needsIntro`).
+// The pen is handed over at random from the inks nobody's holding yet.
+const pickPen = (people = []) => {
+  const taken = new Set(people.filter((p) => p.active !== false).map((p) => p.color));
+  const free = PERSON_COLORS.filter((c) => !taken.has(c));
+  const pool = free.length ? free : PERSON_COLORS;
+  return pool[Math.floor(Math.random() * pool.length)];
+};
+
 const createSession = (people = null) => ({
   id: uid(),
   nickname: "tonight",
   startedAt: new Date().toISOString(),
-  people: people ?? [buildPerson(1, { name: "you" })],
+  people: people ?? [buildPerson(1, { name: "", needsIntro: true, color: pickPen() })],
   events: [],
   customDrinks: [],
 });
@@ -136,7 +146,11 @@ export const useSessionStore = defineStore("session", () => {
   function addPerson(overrides = {}) {
     // Random ids: two phones tearing a receipt at once must not collide.
     const id = `p-${uid()}`;
-    const added = buildPerson(id, overrides, session.value.people.length);
+    const added = buildPerson(
+      id,
+      { needsIntro: true, color: pickPen(session.value.people), ...overrides },
+      session.value.people.length
+    );
     touch(added);
     session.value.people.push(added);
     focusedPersonId.value = id;
@@ -147,6 +161,20 @@ export const useSessionStore = defineStore("session", () => {
     const target = person(id);
     if (!target) return;
     Object.assign(target, updates, { id });
+    touch(target);
+  }
+
+  // The questions on a fresh receipt have been answered.
+  function introduce(id, { name, gender, weight }) {
+    const target = person(id);
+    if (!target) return;
+    const seat = session.value.people.filter((p) => p.active).findIndex((p) => p.id === id) + 1;
+    Object.assign(target, {
+      name: name?.trim() || `guest ${seat || session.value.people.length}`,
+      gender: gender === "female" ? "female" : "male",
+      weight: Math.min(250, Math.max(30, Number(weight) || 78)),
+      needsIntro: false,
+    });
     touch(target);
   }
 
@@ -191,6 +219,7 @@ export const useSessionStore = defineStore("session", () => {
       type: drink.type,
       abv: drink.abv,
       volume: drink.volume,
+      ...(drink.vessel ? { vessel: drink.vessel } : {}),
     });
   }
 
@@ -208,6 +237,7 @@ export const useSessionStore = defineStore("session", () => {
         );
         return {
           name: p.name,
+          color: p.color,
           drinks: events.length,
           peakBAC,
           peakState: feelingFor(peakBAC).state,
@@ -268,6 +298,7 @@ export const useSessionStore = defineStore("session", () => {
     eventsFor,
     addPerson,
     updatePerson,
+    introduce,
     deactivatePerson,
     setFocus,
     pinVibe,

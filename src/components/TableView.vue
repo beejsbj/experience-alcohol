@@ -9,7 +9,7 @@ import { clock } from "../utils/receipt";
 import { scatterRand } from "../utils/scatter";
 import ReceiptPaper from "./ReceiptPaper.vue";
 import TallyStrokes from "./TallyStrokes.vue";
-import StampVerdict from "./StampVerdict.vue";
+import VerdictNote from "./VerdictNote.vue";
 import RoomSlip from "./RoomSlip.vue";
 
 // Everyone's tab, tossed on the table where you can see the lot at once.
@@ -55,8 +55,8 @@ const pickUp = (id) => {
   emit("pickup");
 };
 
-const openRoom = async () => {
-  if (!room.inRoom) await room.startRoom();
+// The coaster itself asks whether you're opening this table or joining one.
+const openRoom = () => {
   slipOpen.value = true;
 };
 
@@ -136,7 +136,7 @@ const coasterRing = computed(() =>
         <ReceiptPaper :seed="`mini:${scrap.person.id}`" :teeth="14" :depth="5">
           <div class="px-3.5 pb-5 pt-5">
             <p class="print text-[8px]" style="letter-spacing: 0.24em; color: var(--print-soft)">GUEST {{ String(scrap.seat).padStart(2, "0") }}</p>
-            <p class="pen pen--hard mt-1 truncate text-[34px] leading-[0.85]">{{ scrap.person.name?.trim() || "???" }}</p>
+            <p class="pen pen--hard mt-1 truncate text-[34px] leading-[0.85]">{{ scrap.person.name?.trim() || "new face…" }}</p>
             <div class="rule mt-2"></div>
             <p class="pen mt-2 text-[22px] leading-[0.9]">{{ scrap.feeling }}</p>
             <p class="dots mt-2 text-[26px]">{{ scrap.bac[0] }}<span class="dot-point"></span>{{ scrap.bac[1] }}</p>
@@ -145,7 +145,7 @@ const coasterRing = computed(() =>
               <span v-if="!scrap.pours" class="print text-[8px]" style="letter-spacing: 0.2em; color: var(--faded)">NO POURS</span>
             </div>
             <div class="mt-2.5">
-              <StampVerdict :verdict="scrap.stamp" :size="10" />
+              <VerdictNote :verdict="scrap.stamp" :seed="String(scrap.person.id)" :size="19" />
             </div>
             <p v-if="seatNote(scrap.person.id)" class="pen mt-2 text-right text-[18px]" :style="{ opacity: scrap.person.id === room.myPersonId ? 1 : 0.55 }">
               {{ seatNote(scrap.person.id) }}

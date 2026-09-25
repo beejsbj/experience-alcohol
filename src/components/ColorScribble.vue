@@ -7,7 +7,10 @@ import { triggerHaptic } from "../utils/haptics";
 
 // Where the bartender tested the pen. Tap it to grab the next pen off the
 // bar — every mark on the receipt switches to that ink.
-const props = defineProps({ person: { type: Object, required: true } });
+const props = defineProps({
+  person: { type: Object, required: true },
+  inline: { type: Boolean, default: false }, // sit in the flow instead of the corner
+});
 const store = useSessionStore();
 const redrawn = ref(0);
 
@@ -34,8 +37,9 @@ const nextPen = () => {
 <template>
   <button
     type="button"
-    class="absolute z-10 p-2"
-    style="top: 6px; right: 6px; transform: rotate(-8deg)"
+    class="z-10 p-2"
+    :class="inline ? 'relative' : 'absolute'"
+    :style="inline ? 'transform: rotate(-4deg)' : 'top: 6px; right: 6px; transform: rotate(-8deg)'"
     aria-label="Grab a different pen"
     @click.stop="nextPen"
   >

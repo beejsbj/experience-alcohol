@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { nextTick } from "vue";
 import { useSessionStore } from "../src/stores/session";
-import { roomCodeFromHash, makeRoomCode, useRoomStore } from "../src/stores/room";
+import { parseRoomCode, roomCodeFromHash, makeRoomCode, useRoomStore } from "../src/stores/room";
 
 // In-memory stand-in for WebRTC: every phone that connects with the same code
 // hears the others. Deliveries are async, like the real thing.
@@ -74,6 +74,17 @@ describe("room codes", () => {
     expect(code).toMatch(/^[a-z0-9]{5}-[a-z0-9]{5}$/);
     expect(roomCodeFromHash(`#t=${code}`)).toBe(code);
     expect(roomCodeFromHash("#nothing")).toBeNull();
+  });
+
+  it("reads a code however it's typed or pasted", () => {
+    const code = makeRoomCode();
+    expect(parseRoomCode(code)).toBe(code);
+    expect(parseRoomCode(code.toUpperCase().replace("-", " "))).toBe(code);
+    expect(parseRoomCode(` ${code.replace("-", "")} `)).toBe(code);
+    expect(parseRoomCode(`https://experience-alcohol.vercel.app/#t=${code}`)).toBe(code);
+    expect(parseRoomCode("abc")).toBeNull();
+    expect(parseRoomCode("")).toBeNull();
+    expect(parseRoomCode("https://example.com/#nope")).toBeNull();
   });
 });
 

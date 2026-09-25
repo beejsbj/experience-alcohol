@@ -31,6 +31,8 @@ const chars = computed(() => {
 const focusInput = () => {
   if (props.editable) inputRef.value?.focus();
 };
+
+defineExpose({ focus: focusInput });
 </script>
 
 <template>
@@ -45,7 +47,7 @@ const focusInput = () => {
       <span v-if="!modelValue && !focused" style="color: var(--faded)">{{ placeholder }}</span>
       <span
         v-if="focused"
-        style="display:inline-block;width:2px;height:1em;background:var(--pen);vertical-align:-2px;animation:none"
+        class="write-on-caret"
       ></span>
     </span>
     <input

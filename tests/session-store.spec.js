@@ -131,6 +131,36 @@ describe("session store", () => {
     expect(host.mergeRemote(JSON.parse(JSON.stringify(guest.session)))).toBe(false);
   });
 
+  it("assumes nothing about a new face: asks, then remembers the answers", () => {
+    const store = useSessionStore();
+    const first = store.activePeople[0];
+    expect(first.needsIntro).toBe(true);
+    expect(first.name).toBe("");
+
+    const id = store.addPerson();
+    expect(store.person(id).needsIntro).toBe(true);
+    // a different pen from whoever's already at the table
+    expect(store.person(id).color).not.toBe(first.color);
+
+    store.introduce(id, { name: "  ria ", gender: "female", weight: 58 });
+    const ria = store.person(id);
+    expect(ria).toMatchObject({ name: "ria", gender: "female", weight: 58, needsIntro: false });
+    expect(ria.rev.by).toBe(store.deviceId);
+  });
+
+  it("fills a skipped name with the seat and keeps weight sane", () => {
+    const store = useSessionStore();
+    store.introduce(1, { name: "", gender: "male", weight: 9000 });
+    expect(store.person(1).name).toBe("guest 1");
+    expect(store.person(1).weight).toBe(250);
+  });
+
+  it("keeps the vessel a house special was written for", () => {
+    const store = useSessionStore();
+    store.addCustomDrink({ type: "tallboy", abv: 0.05, volume: 16, vessel: "can" });
+    expect(store.session.customDrinks[0].vessel).toBe("can");
+  });
+
   it("ignores snapshots from a different session", () => {
     const store = useSessionStore();
     expect(store.mergeRemote({ ...store.session, id: "other", events: [{ id: "x" }] })).toBe(false);

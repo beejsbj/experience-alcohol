@@ -4,9 +4,10 @@ import { useSessionStore } from "../stores/session";
 import { scatter } from "../utils/scatter";
 import WriteOn from "./WriteOn.vue";
 import TallyStrokes from "./TallyStrokes.vue";
+import SexGlyph from "./SexGlyph.vue";
 
-// Who this tab is for. The printer knows the seat; the bartender scrawls the
-// name over it, and keeps a tally.
+// Who this tab is for. The printer knows the seat; everything personal is
+// written in by hand over it — the name, the body, the weight — plus a tally.
 const props = defineProps({
   person: { type: Object, required: true },
   seat: { type: Number, default: 1 },
@@ -19,6 +20,7 @@ const editingWeight = ref(false);
 const weightInput = ref(null);
 
 const namePos = computed(() => scatter(`name-pos:${props.person.id}`, { r: 2.5, x: 3, y: 1 }));
+const bodyPos = computed(() => scatter(`body-pos:${props.person.id}`, { r: 3, x: 2, y: 1 }));
 const tallyPos = computed(() => scatter(`tally-pos:${props.person.id}`, { r: 4, x: 3, y: 2 }));
 
 const toggleSex = () => {
@@ -60,12 +62,15 @@ const updateName = (name) => {
         </div>
       </div>
 
-      <div class="flex shrink-0 flex-col items-end pt-0.5">
-        <p class="print flex items-baseline gap-2 text-[12px]" style="letter-spacing: 0.08em">
-          <button type="button" class="px-1" :aria-label="`Toggle sex — currently ${person.gender}`" @click="toggleSex">
-            {{ person.gender === "male" ? "M" : "F" }}
+      <!-- body and weight, written in by hand; tap either to change it -->
+      <div class="flex shrink-0 flex-col items-end" :style="bodyPos">
+        <p class="flex items-center gap-2">
+          <button type="button" class="p-1" :aria-label="`Body for the math — ${person.gender}; tap to switch`" @click="toggleSex">
+            <SexGlyph :kind="person.gender" :seed="String(person.id)" :size="22" />
           </button>
-          <span v-if="!editingWeight" class="cursor-pointer" @click="startWeightEdit">{{ person.weight }}KG</span>
+          <span v-if="!editingWeight" class="pen cursor-pointer text-[30px] leading-none" @click="startWeightEdit">
+            {{ person.weight }}<span class="text-[20px]">kg</span>
+          </span>
           <input
             v-else
             ref="weightInput"
@@ -74,8 +79,8 @@ const updateName = (name) => {
             :value="person.weight"
             min="30"
             max="250"
-            class="print w-14 bg-transparent text-right outline-none"
-            style="font-size: 16px; border-bottom: 1.5px solid var(--pen)"
+            class="pen w-16 bg-transparent text-right outline-none"
+            style="font-size: 30px"
             @change="updateWeight"
             @blur="editingWeight = false"
             @keydown.enter="editingWeight = false"

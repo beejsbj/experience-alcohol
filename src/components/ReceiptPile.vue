@@ -124,11 +124,8 @@ function onPointerDown(e) {
     dy: 0,
     moved: false,
   };
-  try {
-    top.setPointerCapture(e.pointerId);
-  } catch {
-    // inactive pointer (synthetic events, some Safari cases) — drag still works via bubbling
-  }
+  // Don't capture yet: a captured pointer retargets the click to the card,
+  // and a plain tap on anything written on the paper would never land.
   top.style.transition = "none";
 }
 
@@ -176,7 +173,15 @@ function onPointerMove(e) {
   if (!drag.moved && Math.hypot(drag.dx, drag.dy) < 6) return;
   const top = topCardEl();
   if (!top) return;
-  if (!drag.moved) top.classList.add("is-lifted");
+  if (!drag.moved) {
+    // It's a real drag now: hold on to the pointer even if it leaves the paper.
+    try {
+      top.setPointerCapture(e.pointerId);
+    } catch {
+      // inactive pointer (synthetic events, some Safari cases) — drag still works via bubbling
+    }
+    top.classList.add("is-lifted");
+  }
   drag.moved = true;
   let ny = panY + drag.dy;
   if (ny > 0) ny *= 0.55;
@@ -411,6 +416,6 @@ const nextName = computed(() => nextPerson.value?.name?.trim() || "the next one"
     </div>
 
     <!-- The bar mat: glasses to pour for whoever's on top -->
-    <PourMat v-if="focusedPerson" :key="focusedPerson.id" :person="focusedPerson" />
+    <PourMat v-if="focusedPerson && !focusedPerson.needsIntro" :key="focusedPerson.id" :person="focusedPerson" />
   </div>
 </template>

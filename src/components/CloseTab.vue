@@ -6,8 +6,8 @@ import { clock, tabNumbers } from "../utils/receipt";
 import ReceiptPaper from "./ReceiptPaper.vue";
 import Barcode from "./Barcode.vue";
 
-// The last receipt of the night: printed line by line, then PAID gets
-// slammed across it. Yours to keep.
+// The last receipt of the night: printed line by line, then the bartender
+// scrawls PAID across it and rings it. Yours to keep.
 const store = useSessionStore();
 
 const tab = computed(() => store.lastTab);
@@ -24,6 +24,9 @@ const numbers = computed(() => tabNumbers(tab.value?.startedAt ?? "closed"));
 const totalPours = computed(() => tab.value?.summary.reduce((s, e) => s + e.drinks, 0) ?? 0);
 
 // Each printed line feeds out a beat after the last.
+// When the scrawl goes on: just after the last printed line.
+const paidAt = computed(() => (12 + (tab.value?.summary.length ?? 0)) * 90 + 200);
+
 const line = (i) => ({ animation: `print-line 380ms steps(10) ${(i * 90).toFixed(0)}ms both` });
 
 const fresh = () => {
@@ -67,7 +70,7 @@ const fresh = () => {
               <span>PEAK EST.</span>
               <span>{{ entry.peakBAC.toFixed(3) }}%</span>
             </div>
-            <p class="pen mt-0.5 text-[20px]" style="color: #2b3a8f">peaked {{ entry.peakState.toLowerCase() }}</p>
+            <p class="pen mt-0.5 text-[20px]" :style="{ color: entry.color || '#2b3a8f' }">peaked {{ entry.peakState.toLowerCase() }}</p>
           </div>
 
           <div class="rule mt-4" :style="line(7 + tab.summary.length)"></div>
@@ -86,12 +89,28 @@ const fresh = () => {
           </p>
         </div>
 
-        <!-- slammed on once the printing stops -->
-        <span
-          class="stamp pointer-events-none absolute left-1/2 top-[38%] text-[34px]"
-          style="color: #b3261e; --tilt: -14deg; margin-left: -80px; letter-spacing: 0.2em; padding: 8px 18px 6px 22px"
-          :style="{ animation: `stamp-thump 420ms cubic-bezier(.3,1.4,.5,1) ${(12 + tab.summary.length) * 90 + 200}ms both` }"
-        >PAID</span>
+        <!-- scrawled across it once the printing stops -->
+        <div
+          class="pointer-events-none absolute left-1/2 top-[34%] flex flex-col items-center"
+          style="margin-left: -90px; width: 180px; transform: rotate(-11deg); --pen: #b3261e"
+          :style="{ animation: `char-in 300ms ease-out ${paidAt}ms both` }"
+        >
+          <svg class="absolute -inset-x-6 -inset-y-4 h-[calc(100%+2rem)] w-[calc(100%+3rem)] overflow-visible" viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true">
+            <path
+              d="M40 12 C 110 -4, 196 14, 192 52 C 188 90, 60 98, 18 70 C -6 52, 20 18, 70 8"
+              fill="none"
+              stroke="#b3261e"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              pathLength="500"
+              stroke-dasharray="500"
+              vector-effect="non-scaling-stroke"
+              :style="{ animation: `pen-draw 600ms ease-out ${paidAt + 200}ms both`, '--len': 500 }"
+            />
+          </svg>
+          <span class="pen pen--hard text-[64px] leading-none" style="color: #b3261e">paid!</span>
+          <span class="pen text-[20px]" style="color: #b3261e">thanks all x</span>
+        </div>
       </ReceiptPaper>
     </div>
 

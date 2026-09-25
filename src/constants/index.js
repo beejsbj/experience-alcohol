@@ -93,3 +93,26 @@ export const MAINTAINABLE_STATES = FEELING_STATES.filter((state) =>
     state.state
   )
 );
+
+// What a house special comes in. Picking one fills in a sensible pour and
+// strength (still editable), and decides which glass sits on the bar mat.
+export const VESSELS = [
+  { key: "pint", label: "pint", volume: 16, abv: 0.05, kind: "beer" },
+  { key: "mug", label: "mug", volume: 20, abv: 0.05, kind: "mug" },
+  { key: "can", label: "can", volume: 12, abv: 0.05, kind: "can" },
+  { key: "bottle", label: "bottle", volume: 12, abv: 0.05, kind: "bottle" },
+  { key: "wine", label: "wine", volume: 5, abv: 0.12, kind: "wine" },
+  { key: "flute", label: "bubbly", volume: 5, abv: 0.11, kind: "flute" },
+  { key: "highball", label: "highball", volume: 10, abv: 0.06, kind: "highball" },
+  { key: "rocks", label: "on the rocks", volume: 2, abv: 0.4, kind: "custom" },
+];
+
+// Rough strengths to circle instead of knowing the exact %.
+export const STRENGTHS = [
+  { label: "light", abv: 4 },
+  { label: "beer", abv: 5 },
+  { label: "strong", abv: 8 },
+  { label: "wine", abv: 12 },
+  { label: "fortified", abv: 18 },
+  { label: "spirit", abv: 40 },
+];
