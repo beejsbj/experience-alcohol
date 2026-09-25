@@ -55,6 +55,7 @@ const panes = computed(() => {
       d: bandPath(w.t0, w.t1, scale(b0), scale(b1), geo),
       fill: w.glass,
       opacity: w.shades[i],
+      latest,
       delay: 380 + wi * 55 + i * 30,
     }));
   });
@@ -101,7 +102,7 @@ const leadRings = LEAD_RINGS.map((r) => scale(r));
 const NUMERALS = ["XII", "I", "II", "III", "IIII", "V", "VI", "VII", "VIII", "IX", "X", "XI"];
 const numerals = NUMERALS.map((label, h) => {
   const a = (h / 12) * TAU;
-  const p = polar(C, C, (RIM_IN + RIM_OUT) / 2, a);
+  const p = polar(C, C, RIM_IN + 9, a); // inner half of the rim; jewels take the outer
   return { label, x: p.x, y: p.y, rotate: uprightRotation(a) };
 });
 
@@ -109,9 +110,9 @@ const numerals = NUMERALS.map((label, h) => {
 const jewels = computed(() =>
   model.value.pours.map((p, i) => {
     const rand = scatterRand(`jewel:${p.id}`);
-    const r = (RIM_IN + RIM_OUT) / 2 + (rand() - 0.5) * 12;
+    const r = RIM_OUT - 10 + (rand() - 0.5) * 4;
     const at = polar(C, C, r, angleAt(p.time));
-    return { key: p.id, x: at.x, y: at.y, fill: p.glass, r: 4.2 + rand() * 1.8, delay: 700 + i * 60 };
+    return { key: p.id, x: at.x, y: at.y, fill: p.glass, r: 4 + rand() * 1.4, delay: 700 + i * 60 };
   })
 );
 
@@ -303,8 +304,14 @@ const ms = (n) => ({ "--d": `${n}ms` });
       :cy="C"
       :r="BAND_OUT"
       :stroke="hubGlass"
+      :style="{ color: hubGlass }"
       class="shockwave"
     />
+
+    <!-- …and the glass blooms, brightest where the pour landed -->
+    <g v-if="flare && full" :key="`bloom${flare}`" class="bloom">
+      <path v-for="p in panes" :key="`fl${p.key}`" :d="p.d" :class="p.latest ? 'bloom--hard' : 'bloom--soft'" />
+    </g>
 
     <!-- The hub: a quatrefoil lit by whatever you're drinking now -->
     <g class="hub-group">
@@ -416,7 +423,7 @@ const ms = (n) => ({ "--d": `${n}ms` });
 .numerals text {
   fill: rgba(245, 241, 232, 0.4);
   font-family: var(--font-display);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-anchor: middle;
   dominant-baseline: central;
@@ -460,9 +467,18 @@ const ms = (n) => ({ "--d": `${n}ms` });
   stroke: var(--lead);
   stroke-width: 2;
 }
+.bloom path {
+  fill: #fff8e6;
+  opacity: 0;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.bloom--soft { animation: bloom-soft 1000ms var(--ease-out); }
+.bloom--hard { animation: bloom-hard 1300ms var(--ease-out); }
 .shockwave {
   fill: none;
   stroke-width: 6;
+  filter: drop-shadow(0 0 6px currentColor);
   opacity: 0;
   transform-box: fill-box;
   transform-origin: center;
@@ -539,8 +555,18 @@ const ms = (n) => ({ "--d": `${n}ms` });
   from { opacity: 0; transform: scale(2.2); }
 }
 @keyframes shockwave {
-  0% { opacity: 0.9; transform: scale(0.24); stroke-width: 10; }
-  100% { opacity: 0; transform: scale(1.08); stroke-width: 1; }
+  0% { opacity: 1; transform: scale(0.24); stroke-width: 14; }
+  100% { opacity: 0; transform: scale(1.1); stroke-width: 1; }
+}
+@keyframes bloom-soft {
+  0% { opacity: 0; }
+  25% { opacity: 0.35; }
+  100% { opacity: 0; }
+}
+@keyframes bloom-hard {
+  0% { opacity: 0; }
+  18% { opacity: 0.95; }
+  100% { opacity: 0; }
 }
 @keyframes here-pulse {
   0%, 100% { transform: scale(1); }
@@ -548,6 +574,7 @@ const ms = (n) => ({ "--d": `${n}ms` });
 }
 @media (prefers-reduced-motion: reduce) {
   .here { animation: none; }
-  .shockwave { display: none; }
+  .shockwave,
+  .bloom { display: none; }
 }
 </style>
