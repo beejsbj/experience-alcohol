@@ -39,7 +39,7 @@ const scraps = computed(() =>
       style: {
         transform: `translate(${((rand() * 2 - 1) * 8).toFixed(1)}px, ${((rand() * 2 - 1) * 6).toFixed(1)}px) rotate(${((rand() * 2 - 1) * 5).toFixed(2)}deg)`,
         marginTop: i % 2 === 1 ? "44px" : "0",
-        animation: `scrap-in 320ms cubic-bezier(.2,1.2,.4,1) ${i * 60}ms both`,
+        animation: `scrap-in 320ms cubic-bezier(.2,1.2,.4,1) ${i * 60}ms backwards`,
         "--pen": person.color,
       },
     };

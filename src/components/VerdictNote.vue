@@ -43,7 +43,7 @@ const tilt = computed(() => (scatterRand(`verdict-tilt:${props.seed}:${props.ver
   <span
     :key="verdict"
     class="relative inline-flex items-center gap-1"
-    :style="{ transform: `rotate(${tilt}deg)`, animation: 'char-in 260ms ease-out both' }"
+    :style="{ transform: `rotate(${tilt}deg)`, animation: 'char-in 260ms ease-out backwards' }"
   >
     <svg v-if="mark.kind === 'tick'" :width="size * 0.9" :height="size * 0.8" viewBox="0 0 30 26" class="overflow-visible" aria-hidden="true">
       <path :d="mark.d[0]" fill="none" stroke="var(--pen)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />

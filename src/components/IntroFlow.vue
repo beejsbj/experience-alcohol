@@ -112,7 +112,7 @@ onMounted(() => {
             style="transform: translate(-50%, -50%) rotate(-3deg)"
             aria-hidden="true"
           >
-            <path :d="loops[g]" fill="none" stroke="var(--pen)" stroke-width="1.8" stroke-linecap="round" pathLength="400" stroke-dasharray="400" style="animation: pen-draw 420ms ease-out both; --len: 400" />
+            <path :d="loops[g]" fill="none" stroke="var(--pen)" stroke-width="1.8" stroke-linecap="round" pathLength="400" stroke-dasharray="400" style="animation: pen-draw 420ms ease-out backwards; --len: 400" />
           </svg>
         </button>
       </div>

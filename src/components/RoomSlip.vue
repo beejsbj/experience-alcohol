@@ -209,7 +209,7 @@ const who = computed(() => {
   width: min(320px, 86vw);
   aspect-ratio: 1;
   transform: rotate(-6deg);
-  animation: scrap-in 320ms cubic-bezier(0.2, 1.2, 0.4, 1) both;
+  animation: scrap-in 320ms cubic-bezier(0.2, 1.2, 0.4, 1) backwards;
   --ink: #9c2f22;
 }
 .coaster-flip.is-turning {

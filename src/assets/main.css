@@ -280,7 +280,7 @@
 
   .write-on-char {
     display: inline-block;
-    animation: char-in 110ms ease-out both;
+    animation: char-in 110ms ease-out backwards;
   }
 
   .write-on-caret {

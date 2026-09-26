@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, ref, toRaw, watch } from "vue";
 import { MAINTAINABLE_STATES, PERSON_COLORS } from "../constants";
 import { calculateBACAtTime } from "../utils/bac";
 import { feelingFor } from "../utils/feelings";
@@ -134,10 +134,21 @@ export const useSessionStore = defineStore("session", () => {
   const activePeople = computed(() => session.value.people.filter((p) => p.active));
 
   const person = (id) => session.value.people.find((p) => p.id === id) ?? null;
-  const eventsFor = (personId) =>
-    session.value.events
-      .filter((event) => event.personId === personId)
-      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  // Grouped and time-sorted once per change to the log, not once per caller
+  // per tick. Each event also carries `t` (ms), so the math skips re-parsing
+  // ISO timestamps on every sample.
+  const eventsByPerson = computed(() => {
+    const groups = new Map();
+    for (const event of session.value.events) {
+      const list = groups.get(event.personId) ?? [];
+      list.push({ ...toRaw(event), t: new Date(event.timestamp).getTime() });
+      groups.set(event.personId, list);
+    }
+    for (const list of groups.values()) list.sort((a, b) => a.t - b.t);
+    return groups;
+  });
+  const NO_EVENTS = Object.freeze([]);
+  const eventsFor = (personId) => eventsByPerson.value.get(personId) ?? NO_EVENTS;
 
   // Every edit to a person stamps a rev, so a room merge keeps the newest.
   const touch = (target) => {
@@ -297,6 +308,7 @@ export const useSessionStore = defineStore("session", () => {
     lastTab,
     activePeople,
     person,
+    eventsByPerson,
     eventsFor,
     addPerson,
     updatePerson,

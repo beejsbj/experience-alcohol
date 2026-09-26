@@ -1,6 +1,10 @@
 import { onBeforeUnmount, onMounted, readonly, ref } from "vue";
 
 const now = ref(Date.now());
+
+// The same clock, for shared derived state that lives outside a component.
+// Something on screen must hold a useLiveNow() subscription for it to tick.
+export const liveNow = readonly(now);
 let subscriberCount = 0;
 let timerId = null;
 

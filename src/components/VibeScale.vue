@@ -73,7 +73,7 @@ const toggle = (option) => {
           stroke-linecap="round"
           pathLength="400"
           stroke-dasharray="400"
-          :style="justCircled === option.state ? 'animation: pen-draw 420ms ease-out both; --len: 400' : ''"
+          :style="justCircled === option.state ? 'animation: pen-draw 420ms ease-out backwards; --len: 400' : ''"
         />
       </svg>
     </button>

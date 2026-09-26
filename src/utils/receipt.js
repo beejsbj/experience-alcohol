@@ -20,7 +20,7 @@ export function pourCount(events) {
 export function peakBAC(events, person, now = Date.now()) {
   let peak = calculateBACAtTime(events, person, now);
   for (const e of events) {
-    const t = new Date(e.timestamp).getTime() + 1000;
+    const t = (e.t ?? new Date(e.timestamp).getTime()) + 1000;
     if (t <= now) peak = Math.max(peak, calculateBACAtTime(events, person, t));
   }
   return peak;
