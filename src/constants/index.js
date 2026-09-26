@@ -18,6 +18,9 @@ export const DRINKS = [
   { type: "wine", abv: 0.12, volume: 5 },
   { type: "cocktail", abv: 0.15, volume: 8 },
   { type: "shot", abv: 0.4, volume: 1.5 },
+  // Doesn't lower BAC — the liver runs at its own pace — but every glass of
+  // it is time not spent drinking, and tomorrow thanks you.
+  { type: "water", abv: 0, volume: 12 },
 ];
 
 // BAC levels and their associated effects

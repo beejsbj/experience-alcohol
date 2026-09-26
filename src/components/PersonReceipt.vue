@@ -5,7 +5,7 @@ import { useRoomStore } from "../stores/room";
 import { useLiveNow } from "../composables/useLiveNow";
 import { calculateBACAtTime, calculateSingleDrinkBAC } from "../utils/bac";
 import { CUTOFF_BAC, feelingFor, nextPourMinutes, stampFor } from "../utils/feelings";
-import { clock, peakBAC, standardDrinks, tabNumbers } from "../utils/receipt";
+import { clock, peakBAC, pourCount, standardDrinks, tabNumbers } from "../utils/receipt";
 import { friendMarks, friendNote } from "../utils/doodles";
 import { DRINKS } from "../constants";
 import { scatter } from "../utils/scatter";
@@ -42,6 +42,7 @@ const heldBy = computed(() => {
 
 // ── What the printer knows ────────────────────────────────────────────────
 const events = computed(() => store.eventsFor(props.person.id));
+const pours = computed(() => pourCount(events.value));
 const bac = computed(() => calculateBACAtTime(events.value, props.person, now.value));
 const feeling = computed(() => feelingFor(bac.value));
 const verdict = computed(() => stampFor(bac.value, props.person.pinnedState));
@@ -55,7 +56,7 @@ const bacParts = computed(() => bac.value.toFixed(3).split("."));
 
 const pourNote = computed(() => {
   if (cutOff.value) return "water now. that's the night.";
-  if (!events.value.length) return "first one's on you";
+  if (!pours.value) return "first one's on you";
   const minutes = nextPourMinutes(bac.value, props.person, DRINKS[0], props.person.pinnedState);
   if (minutes === null || minutes <= 0) return "pour whenever you like";
   return `next pour ~${clock(now.value + minutes * 60000)}`;
@@ -78,7 +79,7 @@ const lines = computed(() =>
       type: event.type.toUpperCase(),
       ml: `${Math.round(event.volume * 29.57)}ML`,
       abv: `${Number((abv * 100).toFixed(1))}%`,
-      delta: `+${delta.toFixed(3).slice(1)}`,
+      delta: delta > 0 ? `+${delta.toFixed(3).slice(1)}` : "—",
       isCustom: !DEFAULT_TYPES.has(event.type),
       // printed since this paper was picked up: feed it out of the head
       fresh: new Date(event.timestamp).getTime() > mountedAt.value - 1500,
@@ -89,7 +90,7 @@ const lines = computed(() =>
 const LEDGER_COLS = "34px minmax(0,1fr) 42px 34px 40px";
 
 const totals = computed(() => ({
-  pours: events.value.length,
+  pours: pours.value,
   std: standardDrinks(events.value).toFixed(1),
   peak: peakBAC(events.value, props.person, now.value).toFixed(3),
 }));
@@ -171,7 +172,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
       <template v-else>
         <!-- ── guest ─────────────────────────────────────────── -->
         <section class="relative mt-3">
-          <IdentityLine :person="person" :seat="seat" :pours="events.length" />
+          <IdentityLine :person="person" :seat="seat" :pours="pours" />
           <p v-if="heldBy" class="pen mt-1 text-[18px]" style="opacity: 0.6">{{ heldBy }}</p>
           <Doodle v-if="marks[2]" class="absolute -bottom-5 right-24" :seed="`${person.id}:2`" v-bind="marks[2]" />
         </section>

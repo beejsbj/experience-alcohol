@@ -6,7 +6,7 @@ import { scatterRand } from "../utils/scatter";
 // bartender has got with the next one: 0 = drained, 1 = poured and waiting.
 // Cans and bottles can't fill up, so they come back sealed when it's time.
 const props = defineProps({
-  // beer | mug | wine | cocktail | shot | flute | highball | can | bottle | custom
+  // water | beer | mug | wine | cocktail | shot | flute | highball | can | bottle | custom
   kind: { type: String, default: "custom" },
   fill: { type: Number, default: 1 },
   size: { type: Number, default: 60 },
@@ -42,6 +42,8 @@ const look = computed(() => {
       return { rim: 0.9, wall: 5.5, liquid: ["#c26a22", "#5e2a08"] };
     case "flute":
       return { rim: 0.7, wall: 1.4, liquid: ["#f7e6a8", "#d4b25a"], fizz: true };
+    case "water":
+      return { rim: 0.84, wall: 2.6, liquid: ["rgba(214,236,240,0.55)", "rgba(120,160,172,0.6)"], ice: true };
     case "highball":
       return { rim: 0.84, wall: 2.4, liquid: ["#f3ecd6", "#c9b98e"], lime: true, straw: true, ice: true };
     case "can":
