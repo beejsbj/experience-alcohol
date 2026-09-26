@@ -42,7 +42,7 @@ const loops = computed(() => {
 const lbs = computed(() => Math.round(weight.value * 2.20462));
 
 const nameDone = () => {
-  if (step.value === 0 && name.value.trim()) step.value = 1;
+  if (step.value === 0) step.value = 1;
 };
 
 const pick = (g) => {
@@ -84,10 +84,9 @@ onMounted(() => {
       v-if="step === 0"
       type="button"
       class="pen mt-3 text-[24px]"
-      :style="{ opacity: name.trim() ? 1 : 0.4 }"
       @click="nameDone"
     >
-      that's them ↓
+      {{ name.trim() ? "that's them" : "skip name" }} ↓
     </button>
 
     <!-- 2. body, for the math -->
@@ -118,7 +117,8 @@ onMounted(() => {
         </button>
       </div>
       <p class="print mt-1 text-center text-[8.5px]" style="letter-spacing: 0.16em; color: var(--print-soft)">
-        BODY WATER CHANGES HOW ALCOHOL HITS · NOTHING LEAVES THIS PHONE
+        BODY WATER CHANGES HOW ALCOHOL HITS<br />
+        SHARED TABLES SEND YOUR ANSWERS TO OTHER PHONES
       </p>
     </template>
 

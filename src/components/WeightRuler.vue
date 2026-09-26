@@ -28,15 +28,34 @@ const ticks = computed(() => {
   return out;
 });
 
-const setFrom = (clientX) => {
-  const box = el.value.getBoundingClientRect();
-  const frac = (clientX - box.left) / box.width;
-  const v = Math.round(props.min + frac * (props.max - props.min));
-  const next = Math.min(props.max, Math.max(props.min, v));
+const setWeight = (v) => {
+  const next = Math.min(props.max, Math.max(props.min, Math.round(v)));
   if (next !== props.modelValue) {
     emit("update:modelValue", next);
     if (next % 5 === 0) triggerHaptic("selection");
   }
+};
+
+const setFrom = (clientX) => {
+  const box = el.value.getBoundingClientRect();
+  const frac = (clientX - box.left) / box.width;
+  setWeight(props.min + frac * (props.max - props.min));
+};
+
+const keyDown = (e) => {
+  const steps = {
+    ArrowLeft: -1,
+    ArrowDown: -1,
+    ArrowRight: 1,
+    ArrowUp: 1,
+    PageDown: -10,
+    PageUp: 10,
+  };
+  if (e.key === "Home") setWeight(props.min);
+  else if (e.key === "End") setWeight(props.max);
+  else if (e.key in steps) setWeight(props.modelValue + steps[e.key]);
+  else return;
+  e.preventDefault();
 };
 
 const down = (e) => {
@@ -63,10 +82,12 @@ const up = () => {
     class="block w-full touch-none select-none"
     style="cursor: ew-resize"
     role="slider"
+    tabindex="0"
     :aria-valuemin="min"
     :aria-valuemax="max"
     :aria-valuenow="modelValue"
     aria-label="Weight in kilograms"
+    @keydown="keyDown"
     @pointerdown.stop="down"
     @pointermove.stop="move"
     @pointerup.stop="up"
@@ -84,3 +105,10 @@ const up = () => {
     </g>
   </svg>
 </template>
+
+<style scoped>
+svg:focus-visible {
+  outline: 2px solid var(--pen);
+  outline-offset: 3px;
+}
+</style>
