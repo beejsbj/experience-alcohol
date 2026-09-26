@@ -113,6 +113,8 @@ const note = computed(() => {
 
 // Tap the feeling to have another go at underlining it.
 const underlineNudge = ref(0);
+// The hand only changes every ~10 minutes of drift; don't redraw it per tick.
+const underlineBac = computed(() => Math.floor(bac.value / 0.0025) * 0.0025);
 const reUnderline = () => {
   underlineNudge.value += 1;
   triggerHaptic("selection");
@@ -185,7 +187,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
         <section class="relative mt-4">
           <button type="button" class="block origin-left text-left" :style="feelingTilt" aria-label="Underline it again" @click="reUnderline">
             <p class="pen pen--hard text-[54px] leading-[0.78]">{{ feeling.state.toLowerCase() }}</p>
-            <FeelingUnderline :seed="`${person.id}:${feeling.state}`" :bac="bac" :nudge="underlineNudge" class="mt-0.5" />
+            <FeelingUnderline :seed="`${person.id}:${feeling.state}`" :bac="underlineBac" :nudge="underlineNudge" class="mt-0.5" />
           </button>
           <Doodle v-if="marks[3]" class="absolute -top-5 right-4" :seed="`${person.id}:3`" v-bind="marks[3]" />
 

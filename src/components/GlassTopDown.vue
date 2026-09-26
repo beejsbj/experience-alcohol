@@ -103,13 +103,18 @@ const crown = computed(() => {
         <stop offset="35%" :stop-color="look.cap ?? '#c9973f'" />
         <stop offset="100%" stop-color="#4a2a10" />
       </radialGradient>
+      <radialGradient :id="`${id}-shadow`">
+        <stop offset="62%" stop-color="rgba(0,0,0,0.55)" />
+        <stop offset="100%" stop-color="rgba(0,0,0,0)" />
+      </radialGradient>
       <clipPath :id="`${id}-in`">
         <circle :r="inner" />
       </clipPath>
     </defs>
 
     <!-- shadow on the mat, thrown away from the lamp -->
-    <ellipse cx="4" cy="9" :rx="R * (look.rim ?? 0.8) + 4" :ry="R * (look.rim ?? 0.8) + 2" fill="rgba(0,0,0,0.55)" style="filter: blur(4px)" />
+    <!-- a soft-edged gradient, not a blur filter: it repaints with the glass -->
+    <ellipse cx="4" cy="9" :rx="R * (look.rim ?? 0.8) + 9" :ry="R * (look.rim ?? 0.8) + 7" :fill="`url(#${id}-shadow)`" />
 
     <!-- ── a can, from above ──────────────────────────────── -->
     <g v-if="look.can">

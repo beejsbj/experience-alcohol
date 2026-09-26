@@ -75,6 +75,10 @@ function applyStack(animated) {
         : "none";
     el.style.zIndex = String(40 - depth);
     el.style.opacity = "1";
+    // Only the paper in hand and the one under it get their own GPU layer;
+    // anything deeper than the third sheet is covered anyway, so skip drawing it.
+    el.style.willChange = depth <= 1 ? "transform" : "auto";
+    el.style.visibility = depth >= 3 ? "hidden" : "visible";
     el.style.transform = baseTransform(person, depth, depth === 0 ? panY : 0);
   });
 }
@@ -94,6 +98,7 @@ function onPointerDown(e) {
     // Entering a two-finger gesture — cancel any in-progress single-finger drag
     if (drag) {
       drag = null;
+      document.documentElement.classList.remove("is-dragging");
       const top = topCardEl();
       if (top) top.style.transition = "none";
       applyStack(false);
@@ -181,6 +186,7 @@ function onPointerMove(e) {
       // inactive pointer (synthetic events, some Safari cases) — drag still works via bubbling
     }
     top.classList.add("is-lifted");
+    document.documentElement.classList.add("is-dragging");
   }
   drag.moved = true;
   let ny = panY + drag.dy;
@@ -205,6 +211,7 @@ function onPointerUp(e) {
   const d = drag;
   drag = null;
   topCardEl()?.classList.remove("is-lifted");
+  document.documentElement.classList.remove("is-dragging");
   if (!d.moved) return;
   suppressClick = true;
   setTimeout(() => {
@@ -238,6 +245,7 @@ function onPointerCancel(e) {
   if (!drag || e.pointerId !== drag.id) return;
   drag = null;
   topCardEl()?.classList.remove("is-lifted");
+  document.documentElement.classList.remove("is-dragging");
   applyStack(true);
 }
 
