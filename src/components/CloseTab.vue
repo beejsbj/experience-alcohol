@@ -20,7 +20,7 @@ const duration = computed(() => {
   return hours ? `${hours}H ${String(minutes).padStart(2, "0")}M` : `${minutes}M`;
 });
 
-const numbers = computed(() => tabNumbers(tab.value?.startedAt ?? "closed"));
+const numbers = computed(() => tabNumbers(tab.value?.sessionId ?? "closed"));
 const totalPours = computed(() => tab.value?.summary.reduce((s, e) => s + e.drinks, 0) ?? 0);
 
 // Each printed line feeds out a beat after the last.

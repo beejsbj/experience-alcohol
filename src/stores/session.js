@@ -246,6 +246,7 @@ export const useSessionStore = defineStore("session", () => {
       .filter(Boolean);
 
     lastTab.value = {
+      sessionId: session.value.id,
       nickname: session.value.nickname,
       startedAt: session.value.startedAt,
       closedAt,
