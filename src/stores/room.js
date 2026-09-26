@@ -26,6 +26,17 @@ export const roomCodeFromHash = (hash) => {
   return match ? match[1] : null;
 };
 
+// Whatever someone types or pastes — the code in any case, spaced or dashed,
+// or the whole link — back to a table code. Null if it can't be one.
+export const parseRoomCode = (input) => {
+  const text = String(input ?? "").trim().toLowerCase();
+  const hash = text.indexOf("#");
+  if (hash !== -1) return parseRoomCode(roomCodeFromHash(text.slice(hash)) ?? "");
+  const chars = [...text].filter((c) => CODE_ALPHABET.includes(c)).join("");
+  if (chars.length !== 10) return null;
+  return `${chars.slice(0, 5)}-${chars.slice(5)}`;
+};
+
 const defaultTransport = (options) =>
   import("../room/trysteroTransport").then((m) => m.connectTrystero(options));
 

@@ -1,13 +1,17 @@
 <script setup>
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useSessionStore } from "../stores/session";
 import { scatter } from "../utils/scatter";
 import WriteOn from "./WriteOn.vue";
-import InkArrow from "./InkArrow.vue";
-import ColorScribble from "./ColorScribble.vue";
+import TallyStrokes from "./TallyStrokes.vue";
+import SexGlyph from "./SexGlyph.vue";
 
+// Who this tab is for. The printer knows the seat; everything personal is
+// written in by hand over it — the name, the body, the weight — plus a tally.
 const props = defineProps({
   person: { type: Object, required: true },
+  seat: { type: Number, default: 1 },
+  pours: { type: Number, default: 0 },
 });
 
 const store = useSessionStore();
@@ -15,12 +19,9 @@ const store = useSessionStore();
 const editingWeight = ref(false);
 const weightInput = ref(null);
 
-// Each field is hand-placed: a seeded offset + tilt, positioned absolutely so
-// the name's length never drags the weight or its arrow out of true.
-const namePos = scatter(`name-pos:${props.person.id}`, { r: 2.5, x: 4, y: 3 });
-const sexPos = scatter(`sex-pos:${props.person.id}`, { r: 7, x: 3, y: 2 });
-const weightPos = scatter(`weight-pos:${props.person.id}`, { r: 2, x: 4, y: 3 });
-const weightNotePos = scatter(`weight-note:${props.person.id}`, { r: 3, x: 4, y: 3 });
+const namePos = computed(() => scatter(`name-pos:${props.person.id}`, { r: 2.5, x: 3, y: 1 }));
+const bodyPos = computed(() => scatter(`body-pos:${props.person.id}`, { r: 3, x: 2, y: 1 }));
+const tallyPos = computed(() => scatter(`tally-pos:${props.person.id}`, { r: 4, x: 3, y: 2 }));
 
 const toggleSex = () => {
   store.updatePerson(props.person.id, {
@@ -31,10 +32,6 @@ const toggleSex = () => {
 const startWeightEdit = () => {
   editingWeight.value = true;
   setTimeout(() => weightInput.value?.focus(), 50);
-};
-
-const commitWeight = () => {
-  editingWeight.value = false;
 };
 
 const updateWeight = (e) => {
@@ -48,66 +45,52 @@ const updateName = (name) => {
 </script>
 
 <template>
-  <div class="relative" style="height: 150px">
-    <!-- Ink color scribble + sex glyph cluster, top-right corner -->
-    <ColorScribble :person="person" />
-    <button
-      type="button"
-      class="scribble absolute text-xl leading-none"
-      style="top: 4px; right: 46px; color: var(--pen)"
-      :style="{ ...sexPos, top: '4px', right: '46px' }"
-      :aria-label="`Toggle sex — currently ${person.gender}`"
-      @click="toggleSex"
-    >{{ person.gender === 'male' ? '♂' : '♀' }}</button>
+  <div class="relative">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <p class="print text-[9px]" style="letter-spacing: 0.24em; color: var(--print-soft)">
+          GUEST {{ String(seat).padStart(2, "0") }}
+        </p>
+        <div class="mt-1.5 origin-left" :style="namePos">
+          <WriteOn
+            :model-value="person.name"
+            :seed="`name:${person.id}`"
+            placeholder="who's this?"
+            class="pen--hard text-[60px] leading-[0.7]"
+            @update:model-value="updateName"
+          />
+        </div>
+      </div>
 
-    <!-- Name: the loudest thing on the paper -->
-    <div
-      class="absolute"
-      style="top: 4px; left: 2px; max-width: 64%"
-      :style="{ ...namePos, top: '4px', left: '2px', maxWidth: '64%' }"
-    >
-      <WriteOn
-        :model-value="person.name"
-        :seed="`name:${person.id}`"
-        placeholder="who's this?"
-        :color="person.color"
-        class="text-4xl font-bold leading-none"
-        @update:model-value="updateName"
-      />
+      <!-- body and weight, written in by hand; tap either to change it -->
+      <div class="flex shrink-0 flex-col items-end" :style="bodyPos">
+        <p class="flex items-center gap-2">
+          <button type="button" class="p-1" :aria-label="`Body for the math — ${person.gender}; tap to switch`" @click="toggleSex">
+            <SexGlyph :kind="person.gender" :seed="String(person.id)" :size="22" />
+          </button>
+          <span v-if="!editingWeight" class="pen cursor-pointer text-[30px] leading-none" @click="startWeightEdit">
+            {{ person.weight }}<span class="text-[20px]">kg</span>
+          </span>
+          <input
+            v-else
+            ref="weightInput"
+            type="number"
+            inputmode="numeric"
+            :value="person.weight"
+            min="30"
+            max="250"
+            class="pen w-16 bg-transparent text-right outline-none"
+            style="font-size: 30px"
+            @change="updateWeight"
+            @blur="editingWeight = false"
+            @keydown.enter="editingWeight = false"
+          />
+        </p>
+        <div v-if="pours" class="mt-2" :style="tallyPos">
+          <TallyStrokes :count="pours" :seed="`total:${person.id}`" :size="22" color="var(--pen)" />
+        </div>
+      </div>
     </div>
 
-    <!-- Weight: bare printed number, hand-placed below the name -->
-    <div
-      class="absolute"
-      style="top: 86px; left: 6px"
-      :style="{ ...weightPos, top: '86px', left: '6px' }"
-    >
-      <span v-if="!editingWeight" class="print text-lg cursor-pointer" @click="startWeightEdit">
-        {{ person.weight }}
-      </span>
-      <input
-        v-else
-        ref="weightInput"
-        type="number"
-        :value="person.weight"
-        min="30"
-        max="250"
-        class="print text-lg w-16 bg-transparent border-b border-[var(--pen)] outline-none"
-        style="font-size: 16px"
-        @change="updateWeight"
-        @blur="commitWeight"
-        @keydown.enter="commitWeight"
-      />
-    </div>
-
-    <!-- Weight margin note: arrow hooks back left toward the bare number -->
-    <div
-      class="absolute flex items-center gap-1"
-      style="top: 84px; left: 64px"
-      :style="{ ...weightNotePos, top: '84px', left: '64px' }"
-    >
-      <InkArrow :seed="`weight:${person.id}`" dir="left" :width="32" :height="20" />
-      <span class="scribble text-base" style="color: var(--pen)">weight, kg</span>
-    </div>
   </div>
 </template>

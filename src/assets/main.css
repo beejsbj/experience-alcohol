@@ -2,17 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * LAST CALL — v3.
+ * One lamp over a wooden bar top. Everything is lit by it: the wood, the
+ * paper, the brass. The printer states facts; a pen annotates them.
+ */
+
+@property --drunk {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
 :root {
-  --table: #3a2e24;
-  --paper: #fafaf7;
-  --paper-shade: #efefea;
-  --ink: #1c1c1a;
-  --print: #3a3a35;
-  --faded: #8a8a82;
-  --pen: #2b3a8f;
-  --redpen: #c92a1d;
-  --greenink: #1c8a3c;
+  /* the table */
+  --table: #1a110b;
+  --wood-deep: #140c07;
+  --wood: #3b2414;
+  --wood-hi: #6a4125;
+  --lamp: 255, 196, 128;
   --amber: #e8a33c;
+  --amber-soft: rgba(232, 163, 60, 0.72);
+  --brass-hi: #f6dc9c;
+  --brass: #c9973f;
+  --brass-lo: #6e4c1c;
+  --mat: #151312;
+
+  /* the paper */
+  --paper: #f7f3ea;
+  --paper-shade: #ebe5d8;
+  --ink: #221f1b;
+  --print: #2b2824;
+  --print-soft: #5b564d;
+  --faded: #9a948a;
+  --pen: #2b3a8f;
+  --redpen: #b3261e;
+  --greenink: #1f6b45;
+
+  /* the voices */
+  --font-print: "Martian Mono Variable", ui-monospace, monospace;
+  --font-dots: "Doto", "Martian Mono Variable", monospace;
+  --font-pen: "Nanum Pen Script", "Bradley Hand", cursive;
 }
 
 @layer base {
@@ -25,32 +55,164 @@
   body {
     background: var(--table);
     color: var(--ink);
-    font-family: "Space Mono", monospace;
+    font-family: var(--font-print);
+    font-stretch: 75%;
     -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
     overflow: hidden;
   }
 
   button {
     touch-action: manipulation;
   }
+
+  /* No visible scrollbars, ever. */
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer components {
-  .table-grain {
+  /* ── Voices ───────────────────────────────────────────────────────────── */
+
+  /* The printer: condensed thermal mono. */
+  .print {
+    font-family: var(--font-print);
+    font-stretch: 75%;
+    font-weight: 420;
+    color: var(--print);
+    letter-spacing: 0.02em;
+  }
+
+  /* The printer in double-strike: dot matrix for the numbers that matter. */
+  .dots {
+    font-family: var(--font-dots);
+    font-weight: 900;
+    color: var(--print);
+    letter-spacing: 0.02em;
+    line-height: 0.9;
+  }
+
+  .dot-point {
+    display: inline-block;
+    width: 0.13em;
+    height: 0.13em;
+    margin: 0 0.05em;
+    background: currentColor;
+    box-shadow: inset 0 0 0 0.02em var(--paper);
+  }
+
+  /* A human with a ballpoint. */
+  .pen {
+    font-family: var(--font-pen);
+    color: var(--pen);
+    line-height: 0.95;
+    -webkit-text-stroke: 0.25px currentColor;
+  }
+
+  .pen--hard {
+    -webkit-text-stroke: 0.9px currentColor;
+  }
+
+  /* Printed rules — dashes a thermal head actually makes. */
+  .rule {
+    height: 2px;
+    background: repeating-linear-gradient(90deg, var(--print) 0 5px, transparent 5px 9px);
+    opacity: 0.55;
+  }
+  .rule--double {
+    height: 5px;
+    background:
+      repeating-linear-gradient(90deg, var(--print) 0 7px, transparent 7px 9px) top / 100% 1.5px no-repeat,
+      repeating-linear-gradient(90deg, var(--print) 0 7px, transparent 7px 9px) bottom / 100% 1.5px no-repeat;
+    opacity: 0.6;
+  }
+  .rule--dots {
+    height: 2px;
+    background: radial-gradient(circle, var(--faded) 0.9px, transparent 1.2px) 0 0 / 5px 2px repeat-x;
+  }
+
+  /* ── The bar top ──────────────────────────────────────────────────────── */
+
+  .bar-top {
     position: fixed;
     inset: 0;
     pointer-events: none;
-    opacity: 0.1;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    overflow: hidden;
+    transition: --drunk 2.5s ease;
   }
+
+  .bar-top__wood {
+    position: absolute;
+    inset: -4%;
+    --plank: 132px;
+    background-color: var(--wood);
+    background-image:
+      /* plank seams */
+      repeating-linear-gradient(90deg,
+        transparent 0 calc(var(--plank) - 3px),
+        rgba(0, 0, 0, 0.6) calc(var(--plank) - 3px) calc(var(--plank) - 1px),
+        rgba(255, 210, 160, 0.07) calc(var(--plank) - 1px) var(--plank)),
+      /* no two planks the same tone */
+      repeating-linear-gradient(90deg,
+        rgba(0, 0, 0, 0.16) 0 var(--plank),
+        rgba(255, 200, 150, 0.035) var(--plank) calc(var(--plank) * 2),
+        rgba(0, 0, 0, 0.06) calc(var(--plank) * 2) calc(var(--plank) * 3),
+        rgba(40, 18, 4, 0.14) calc(var(--plank) * 3) calc(var(--plank) * 4)),
+      /* growth-ring figure, fibre, and the odd pale streak */
+      var(--wood-figure),
+      var(--wood-fibre),
+      var(--wood-streak),
+      linear-gradient(180deg, #4a2c17, #2a180c);
+    background-size: auto, auto, 420px 900px, 300px 700px, 340px 760px, auto;
+    background-position: 0 0, 0 0, 0 0, 57px 0, 131px 0, 0 0;
+    --wood-figure: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='900'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.016 0.0018' numOctaves='3' seed='3' stitchTiles='stitch'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='5' intercept='-2'/%3E%3C/feComponentTransfer%3E%3CfeComponentTransfer%3E%3CfeFuncR type='table' tableValues='0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0'/%3E%3C/feComponentTransfer%3E%3CfeGaussianBlur stdDeviation='0.6'/%3E%3CfeColorMatrix values='0 0 0 0 .03 0 0 0 0 .015 0 0 0 0 .005 .42 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23w%29'/%3E%3C/svg%3E");
+    --wood-fibre: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='700'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35 0.008' numOctaves='3' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .75 0 0 0 -.3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23w%29'/%3E%3C/svg%3E");
+    --wood-streak: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='760'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5 0.006' numOctaves='3' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .95 0 0 0 0 .65 0 0 0 0 .4 .26 0 0 0 -.136'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23w%29'/%3E%3C/svg%3E");
+  }
+
+  /* Lacquer: a long soft reflection of the lamp across the finish. */
+  .bar-top__lamp {
+    position: absolute;
+    inset: -10%;
+    background:
+      radial-gradient(ellipse 34% 22% at 50% 30%, rgba(var(--lamp), 0.34), transparent 70%),
+      radial-gradient(ellipse 70% 48% at 50% 34%, rgba(var(--lamp), calc(0.22 + var(--drunk) * 0.1)), transparent 72%),
+      radial-gradient(ellipse 110% 80% at 50% 40%, rgba(var(--lamp), 0.07), transparent 80%);
+    mix-blend-mode: screen;
+    animation: lamp-sway 11s ease-in-out infinite;
+  }
+
+  /* Tunnel vision: the room closes in as the night goes on. */
+  .bar-top__vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse calc(95% - var(--drunk) * 28%) calc(80% - var(--drunk) * 22%) at 50% 40%,
+      transparent 35%,
+      rgba(10, 5, 2, calc(0.62 + var(--drunk) * 0.25)) 100%
+    );
+  }
+
+  .bar-top__grain {
+    position: absolute;
+    inset: 0;
+    opacity: 0.16;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ── The pile ─────────────────────────────────────────────────────────── */
 
   .pile-card {
     position: absolute;
     left: 50%;
-    top: 34px;
-    width: min(100vw - 24px, 420px);
-    margin-left: calc(min(100vw - 24px, 420px) / -2);
+    top: calc(50px + env(safe-area-inset-top));
+    width: min(100vw - 40px, 380px);
+    margin-left: calc(min(100vw - 40px, 380px) / -2);
     will-change: transform;
     cursor: grab;
   }
@@ -59,175 +221,165 @@
     cursor: grabbing;
   }
 
-  .print {
-    font-family: "Space Mono", monospace;
-  }
+  /* ── Paper ────────────────────────────────────────────────────────────── */
 
-  .scribble {
-    font-family: "Caveat", cursive;
-  }
-
-  .receipt-paper {
+  .paper {
     position: relative;
-    background: var(--paper);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-    clip-path: polygon(
-      0 0, 100% 0, 100% calc(100% - 9px),
-      96% 100%, 90% calc(100% - 8px), 84% 100%, 78% calc(100% - 9px),
-      72% 100%, 66% calc(100% - 7px), 60% 100%, 54% calc(100% - 9px),
-      48% 100%, 42% calc(100% - 8px), 36% 100%, 30% calc(100% - 9px),
-      24% 100%, 18% calc(100% - 7px), 12% 100%, 6% calc(100% - 9px), 0 100%
-    );
   }
 
-  .masthead {
-    font-size: 0.5rem;
-    letter-spacing: 0.2em;
-    text-align: center;
-    color: var(--faded);
-  }
-
-  .stamp {
-    display: inline-block;
-    border: 2.5px solid currentColor;
-    border-radius: 4px 6px 3px 7px / 6px 3px 7px 4px;
-    padding: 1px 8px;
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-  }
-
-  .sticker {
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    width: 100%;
-    padding: 9px 2px 7px;
-    background: #fffef6;
-    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
-    clip-path: polygon(
-      2% 6%, 5% 0, 95% 2%, 99% 8%,
-      98% 92%, 94% 100%, 6% 98%, 1% 93%
-    );
-    color: var(--pen);
-    transition: transform 120ms ease;
-  }
-
-  .sticker:active {
-    transform: scale(0.92);
-  }
-
-  .sticker--drying {
-    color: #9a9a92;
-  }
-
-  .sticker--strip {
-    width: auto;
-    padding: 3px 16px 4px;
-  }
-
-  .sticker--ghost {
-    background: transparent;
-    filter: none;
-    clip-path: none;
-    border: 2px dashed var(--faded);
-    color: var(--faded);
-  }
-
-  .sticker__hatch {
+  /* The shadow lives outside the clip so a torn edge can't cut it off. */
+  .paper__shadow {
     position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: repeating-linear-gradient(
-      115deg,
-      rgba(60, 60, 55, 0.22) 0 2px,
-      transparent 2px 5px
-    );
-    clip-path: inset(0 0 0 calc((1 - var(--cd, 0)) * 100%));
+    inset: 10px 4px 6px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    filter: blur(14px);
+    transform: translateY(10px);
+    transition: transform 260ms ease, filter 260ms ease, opacity 260ms ease;
+    opacity: 0.85;
   }
 
-  .sticker__label {
-    font-family: "Space Mono", monospace;
-    font-size: 0.55rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
+  .paper__sheet {
+    position: relative;
+    background-color: var(--paper);
+    background-image:
+      /* lamp hotspot from above */
+      radial-gradient(ellipse 120% 38% at 50% 0%, rgba(255, 244, 220, 0.9), transparent 70%),
+      /* the paper curls up at its long edges */
+      linear-gradient(90deg, rgba(92, 64, 30, 0.13), transparent 7%, transparent 93%, rgba(92, 64, 30, 0.15)),
+      /* further from the lamp, warmer and dimmer */
+      linear-gradient(180deg, transparent 30%, rgba(120, 80, 30, 0.08)),
+      /* fibre */
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.22 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23p)'/%3E%3C/svg%3E");
   }
 
-  .ink-blot {
-    width: 1.6rem;
-    height: 1.6rem;
-    border-radius: 50%;
-    border: 2px solid transparent;
+  .is-lifted .paper__shadow {
+    transform: translateY(26px) scale(1.03);
+    filter: blur(26px);
+    opacity: 0.7;
   }
 
-  .ink-blot--active {
-    border-color: var(--ink);
+  /* ── Glass on the bar mat ─────────────────────────────────────────────── */
+
+  .mat {
+    position: relative;
+    border-radius: 14px;
+    background-color: var(--mat);
+    background-image:
+      radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.07) 0 1.6px, transparent 2.4px),
+      radial-gradient(circle at 50% 60%, rgba(0, 0, 0, 0.7) 0 1.8px, transparent 2.6px),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 30%, rgba(0, 0, 0, 0.3));
+    background-size: 9px 9px, 9px 9px, auto;
+    box-shadow:
+      0 -1px 0 rgba(255, 220, 170, 0.08) inset,
+      0 0 0 1px rgba(0, 0, 0, 0.6),
+      0 -12px 30px rgba(0, 0, 0, 0.55);
   }
+
+  /* ── Motion helpers ───────────────────────────────────────────────────── */
 
   .write-on-char {
     display: inline-block;
-    animation: char-in 90ms ease-out both;
+    animation: char-in 110ms ease-out both;
+  }
+
+  .write-on-caret {
+    display: inline-block;
+    width: 1.5px;
+    height: 0.62em;
+    margin-left: 2px;
+    background: var(--pen);
+    vertical-align: -0.02em;
+    opacity: 0.8;
+    animation: caret-blink 1s steps(2) infinite;
   }
 
   .keepsake {
     position: fixed;
     inset: 0;
-    z-index: 50;
+    z-index: 60;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(20, 14, 8, 0.55);
+    background: radial-gradient(ellipse at 50% 40%, rgba(14, 8, 4, 0.8), rgba(6, 3, 1, 0.94));
     padding: 1.2rem;
+    overflow-y: auto;
   }
+}
 
-  .page-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: rgba(232, 163, 60, 0.35);
+@keyframes lamp-sway {
+  0%,
+  100% {
+    transform: translate(calc(var(--drunk) * -2.5%), 0);
   }
+  50% {
+    transform: translate(calc(var(--drunk) * 2.5%), calc(var(--drunk) * 1.2%));
+  }
+}
 
-  .page-dot--active {
-    background: var(--amber);
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
   }
 }
 
 @keyframes char-in {
   from {
     opacity: 0;
-    transform: translateY(3px) rotate(3deg) scale(1.3);
+    transform: translateY(2px) scale(1.25);
   }
 }
 
-@keyframes scrap-in {
-  from {
-    transform: translateY(-14px) rotate(3deg);
-    opacity: 0;
-  }
-}
-
-@keyframes pin-drop {
+@keyframes print-line {
   0% {
-    transform: translateY(-18px) scale(1.4);
-    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.4;
   }
   60% {
-    transform: translateY(1px) scale(0.96);
     opacity: 1;
   }
   100% {
-    transform: translateY(0) scale(1);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes ring-set {
+  from {
+    transform: scale(1.18);
+    opacity: 0;
   }
 }
 
 @keyframes receipt-in {
   from {
-    transform: translateY(40px) rotate(4deg);
+    transform: translateY(40px) rotate(3deg);
     opacity: 0;
+  }
+}
+
+@keyframes scrap-in {
+  from {
+    transform: translateY(-18px) rotate(4deg) scale(1.04);
+    opacity: 0;
+  }
+}
+
+@keyframes pen-draw {
+  from {
+    stroke-dashoffset: var(--len, 400);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes glint {
+  0%,
+  86% {
+    transform: translateX(-140%) rotate(24deg);
+  }
+  100% {
+    transform: translateX(140%) rotate(24deg);
   }
 }
 

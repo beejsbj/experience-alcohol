@@ -4,7 +4,7 @@ import { useSessionStore } from "./stores/session";
 import { useRoomStore } from "./stores/room";
 import { calculateBACAtTime } from "./utils/bac";
 import { useLiveNow } from "./composables/useLiveNow";
-import BubbleField from "./components/BubbleField.vue";
+import BarTop from "./components/BarTop.vue";
 import ReceiptPile from "./components/ReceiptPile.vue";
 import TableView from "./components/TableView.vue";
 import CloseTab from "./components/CloseTab.vue";
@@ -40,9 +40,8 @@ watch(
 
 <template>
   <div class="relative w-full overflow-hidden" style="min-height: 100dvh; background: var(--table);">
-    <!-- Canvas bubble field behind everything -->
-    <BubbleField :intensity="bubbleIntensity" style="z-index: 0;" />
-    <div class="table-grain" style="z-index: 1;" aria-hidden="true"></div>
+    <!-- The room: wood, rings, lamp, dust — it closes in as the night goes on -->
+    <BarTop :intensity="bubbleIntensity" style="z-index: 0;" />
 
     <!-- Main content layer -->
     <div class="relative" style="z-index: 2;">

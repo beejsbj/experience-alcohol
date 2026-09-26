@@ -1,325 +1,300 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useSessionStore } from "../stores/session";
+import { useRoomStore } from "../stores/room";
 import { useLiveNow } from "../composables/useLiveNow";
 import { calculateBACAtTime, calculateSingleDrinkBAC } from "../utils/bac";
-import { CUTOFF_BAC, feelingFor, nextPourMinutes, stampFor, targetDetails } from "../utils/feelings";
-import { DRINKS, MAINTAINABLE_STATES } from "../constants";
-import { scatter, scatterRand } from "../utils/scatter";
+import { CUTOFF_BAC, feelingFor, nextPourMinutes, stampFor } from "../utils/feelings";
+import { clock, peakBAC, standardDrinks, tabNumbers } from "../utils/receipt";
+import { friendMarks, friendNote } from "../utils/doodles";
+import { DRINKS } from "../constants";
+import { scatter } from "../utils/scatter";
 import { triggerHaptic } from "../utils/haptics";
+import ReceiptPaper from "./ReceiptPaper.vue";
 import IdentityLine from "./IdentityLine.vue";
-import TallyStrokes from "./TallyStrokes.vue";
-import RoughChart from "./RoughChart.vue";
-import PourTiles from "./PourTiles.vue";
-import PushPin from "./PushPin.vue";
-import StampVerdict from "./StampVerdict.vue";
+import IntroFlow from "./IntroFlow.vue";
+import ColorScribble from "./ColorScribble.vue";
+import ThermalChart from "./ThermalChart.vue";
+import VibeScale from "./VibeScale.vue";
+import VerdictNote from "./VerdictNote.vue";
+import FeelingUnderline from "./FeelingUnderline.vue";
+import Doodle from "./Doodle.vue";
+import Barcode from "./Barcode.vue";
 import InkArrow from "./InkArrow.vue";
 
+// One person's tab: thermal paper the printer fills with facts, which the
+// whole table then writes all over.
 const props = defineProps({
   person: { type: Object, required: true },
-  isNew: { type: Boolean, default: false },
 });
 
 const store = useSessionStore();
+const room = useRoomStore();
 const now = useLiveNow();
 
-// --- BAC / feeling computeds ---
+// At a shared table: whose phone is holding this receipt right now.
+const heldBy = computed(() => {
+  if (!room.inRoom) return null;
+  if (props.person.id === room.myPersonId) return "yours — on this phone";
+  if (room.heldElsewhere.has(props.person.id)) return "on their phone";
+  return null;
+});
+
+// ── What the printer knows ────────────────────────────────────────────────
 const events = computed(() => store.eventsFor(props.person.id));
 const bac = computed(() => calculateBACAtTime(events.value, props.person, now.value));
 const feeling = computed(() => feelingFor(bac.value));
-const stamp = computed(() => stampFor(bac.value, props.person.pinnedState));
-const target = computed(() => targetDetails(props.person.pinnedState));
+const verdict = computed(() => stampFor(bac.value, props.person.pinnedState));
 const cutOff = computed(() => bac.value >= CUTOFF_BAC);
+const seat = computed(() => Math.max(1, store.activePeople.findIndex((p) => p.id === props.person.id) + 1));
+const numbers = computed(() => tabNumbers(store.session.id));
+const opened = computed(() => clock(store.session.startedAt));
 
-const pourCopy = computed(() => {
-  if (cutOff.value) return "no more tonight — water + a friend keeping watch";
+// Doto's own full stop reads as a plus at this weight; print a square dot.
+const bacParts = computed(() => bac.value.toFixed(3).split("."));
+
+const pourNote = computed(() => {
+  if (cutOff.value) return "water now. that's the night.";
+  if (!events.value.length) return "first one's on you";
   const minutes = nextPourMinutes(bac.value, props.person, DRINKS[0], props.person.pinnedState);
-  if (minutes === null || minutes <= 0) return "next pour — whenever you like";
-  const at = new Date(now.value + minutes * 60000);
-  const hh = at.getHours().toString().padStart(2, "0");
-  const mm = at.getMinutes().toString().padStart(2, "0");
-  return `next pour — ~${hh}:${mm}`;
+  if (minutes === null || minutes <= 0) return "pour whenever you like";
+  return `next pour ~${clock(now.value + minutes * 60000)}`;
 });
 
-// --- Receipt log lines (this person only) ---
+// ── Ledger ────────────────────────────────────────────────────────────────
 const DEFAULT_TYPES = new Set(DRINKS.map((d) => d.type));
-
-const receiptLines = computed(() => {
-  return [...events.value]
-    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-    .map((event) => {
-      const abv = event.abv ?? event.alcoholContent;
-      const delta = calculateSingleDrinkBAC(props.person.weight, props.person.gender, abv, event.volume);
-      return {
-        id: event.id,
-        time: new Date(event.timestamp).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }),
-        type: event.type.toLowerCase(),
-        ml: `${Math.round(event.volume * 29.57)}ml`,
-        abv: `${Number((abv * 100).toFixed(1))}%`,
-        delta: `+${delta.toFixed(3)}`,
-        isCustom: !DEFAULT_TYPES.has(event.type),
-      };
-    });
+const mountedAt = ref(Infinity);
+onMounted(() => {
+  mountedAt.value = Date.now();
 });
 
-// Fixed column track shared by every ledger row, so the numbers line up
-// down the receipt no matter how long a drink name is.
-const LEDGER_COLS = "38px minmax(0,1fr) 52px 40px 12px auto";
+const lines = computed(() =>
+  events.value.map((event) => {
+    const abv = event.abv ?? event.alcoholContent;
+    const delta = calculateSingleDrinkBAC(props.person.weight, props.person.gender, abv, event.volume);
+    return {
+      id: event.id,
+      time: clock(event.timestamp),
+      type: event.type.toUpperCase(),
+      ml: `${Math.round(event.volume * 29.57)}ML`,
+      abv: `${Number((abv * 100).toFixed(1))}%`,
+      delta: `+${delta.toFixed(3).slice(1)}`,
+      isCustom: !DEFAULT_TYPES.has(event.type),
+      // printed since this paper was picked up: feed it out of the head
+      fresh: new Date(event.timestamp).getTime() > mountedAt.value - 1500,
+    };
+  })
+);
 
-const totalDrinks = computed(() => events.value.length);
+const LEDGER_COLS = "34px minmax(0,1fr) 42px 34px 40px";
 
-// --- Vibe pin menu ---
-const vibeMenuOpen = ref(false);
-const vibeMenuRef = ref(null);
+const totals = computed(() => ({
+  pours: events.value.length,
+  std: standardDrinks(events.value).toFixed(1),
+  peak: peakBAC(events.value, props.person, now.value).toFixed(3),
+}));
 
-const pinState = (stateName) => {
-  store.pinVibe(props.person.id, stateName);
-  vibeMenuOpen.value = false;
+// ── The table writes on it ────────────────────────────────────────────────
+const friends = computed(() => store.activePeople.filter((p) => p.id !== props.person.id && !p.needsIntro));
+const SLOTS = 8;
+const marks = computed(() => {
+  const inks = [...new Set(friends.value.map((f) => f.color))];
+  const placed = friendMarks(props.person.id, store.session.events.length, inks, props.person.color, SLOTS);
+  return Object.fromEntries(placed.map((m) => [m.slot, { name: m.name, ink: m.ink, rot: m.rot, size: m.size }]));
+});
+const note = computed(() => {
+  if (!events.value.length) return null;
+  const n = friendNote(props.person.id, verdict.value, friends.value.map((f) => ({ name: f.name, color: f.color })));
+  return { text: n.text, from: n.from?.name?.trim() || "the bar", ink: n.from?.color ?? props.person.color };
+});
+
+// Tap the feeling to have another go at underlining it.
+const underlineNudge = ref(0);
+const reUnderline = () => {
+  underlineNudge.value += 1;
   triggerHaptic("selection");
 };
 
-const toggleVibeMenu = () => {
-  vibeMenuOpen.value = !vibeMenuOpen.value;
-  if (vibeMenuOpen.value) triggerHaptic("selection");
-};
-
-const handleDocClick = (e) => {
-  if (!vibeMenuRef.value?.contains(e.target)) vibeMenuOpen.value = false;
-};
-onMounted(() => document.addEventListener("click", handleDocClick));
-onBeforeUnmount(() => document.removeEventListener("click", handleDocClick));
-
-// --- Close tab two-tap ---
-const closingConfirm = ref(false);
-const hasEvents = computed(() => events.value.length > 0);
-
-const handleCloseTab = () => {
-  if (!hasEvents.value) return;
-  if (!closingConfirm.value) {
-    closingConfirm.value = true;
-    return;
-  }
-  store.closeTab();
-  closingConfirm.value = false;
-  triggerHaptic("success");
-};
-
-// --- Left the bar (deactivate this person) ---
-const canDeactivate = computed(() => store.activePeople.length > 1);
-
+// ── Footer: leaving, closing ──────────────────────────────────────────────
+const canLeave = computed(() => store.activePeople.length > 1);
 const leaveBar = () => {
-  if (!canDeactivate.value) return;
+  if (!canLeave.value) return;
   store.deactivatePerson(props.person.id);
   triggerHaptic("selection");
 };
 
-// --- Whole-paper scatter transform ---
-const paperStyle = computed(() => scatter(`paper:${props.person.id}`, { r: 1.2, x: 3, y: 0 }));
+const closing = ref(false);
+const closeTab = () => {
+  if (!store.session.events.length) return;
+  if (!closing.value) {
+    closing.value = true;
+    triggerHaptic("warning");
+    return;
+  }
+  closing.value = false;
+  store.closeTab();
+  triggerHaptic("success");
+};
+
+// ── Hand placement ────────────────────────────────────────────────────────
+const tilt = (key, o) => scatter(`${key}:${props.person.id}`, o);
+const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
 </script>
 
 <template>
-  <div
-    class="receipt-paper mx-auto w-full"
-    style="max-width: 420px; animation: receipt-in 280ms ease-out both;"
-    :style="{ ...paperStyle, '--pen': person.color }"
-  >
-    <div class="px-5 pb-8 pt-4">
+  <ReceiptPaper :seed="`receipt:${person.id}`" :style="{ '--pen': person.color }">
+    <ColorScribble v-if="!person.needsIntro" :person="person" />
 
-      <!-- 1. Identity zone: name, sex, weight, ink scribble — all hand-placed -->
-      <IdentityLine :person="person" />
-
-      <!-- 2. Drinks: big bare tally, annotated by hand -->
-      <div class="mt-2 flex items-center gap-2" :style="scatter(`tally-row:${person.id}`, { r: 1, x: 3, y: 1 })">
-        <template v-if="totalDrinks > 0">
-          <TallyStrokes :count="totalDrinks" :seed="`total:${person.id}`" :size="30" color="var(--pen)" />
-          <InkArrow :seed="`drinks:${person.id}`" :width="34" :height="20" />
-          <span class="scribble text-base" style="color: var(--pen)">drinks</span>
-        </template>
-        <p v-else class="scribble text-base" style="color: var(--faded)">tap a drink to start your tab</p>
-      </div>
-
-      <!-- 3. Rough chart -->
-      <div class="mt-3" :style="scatter(`chart-block:${person.id}`, { r: 0.5, x: 2, y: 1 })">
-        <RoughChart :person="person" />
-      </div>
-
-      <!-- 4. Feeling block — the pinned vibe is punched in beside the word -->
-      <div class="mt-3">
-        <!-- No transform on this wrapper: a transformed ancestor would trap the
-             vibe menu's z-index and let later sections paint over it. -->
-        <div class="flex items-end gap-2 flex-wrap">
-          <!-- big feeling state in Caveat -->
-          <div :style="scatter(`feeling:${person.id}`, { r: 2.5, x: 5, y: 2 })">
-            <div class="flex items-baseline gap-1">
-              <span class="scribble text-[11px]" style="color: var(--faded)">feeling:</span>
-              <span class="scribble text-3xl font-bold" style="color: var(--pen)">{{ feeling.state.toLowerCase() }}</span>
-            </div>
-            <!-- hand underline -->
-            <svg class="-mt-1" width="140" height="10" viewBox="0 0 140 10" aria-hidden="true">
-              <path
-                d="M4 6 C 30 2, 80 2, 136 5 C 90 5, 35 7, 6 9"
-                fill="none"
-                stroke="var(--pen)"
-                stroke-width="1.6"
-                stroke-linecap="round"
-              />
-            </svg>
-          </div>
-
-          <!-- pinned vibe: a punched hole right by the feeling, pin dropped in -->
-          <div ref="vibeMenuRef" class="relative" style="margin-bottom: 6px">
-            <div
-              class="cursor-pointer flex items-center gap-1.5"
-              :style="scatter(`pin-area:${person.id}`, { r: 1, x: 3, y: 1 })"
-              @click="toggleVibeMenu"
-            >
-              <!-- the hole -->
-              <span class="relative inline-flex" style="width: 18px; height: 18px">
-                <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-                  <circle cx="9" cy="9" r="5.5" fill="var(--paper-shade)" stroke="var(--faded)" stroke-width="1" />
-                  <path d="M5 11 A 5.5 5.5 0 0 1 9 3.5" fill="none" stroke="rgba(0,0,0,0.16)" stroke-width="1.2" stroke-linecap="round" />
-                </svg>
-                <!-- pin dropped into the hole when a vibe is held -->
-                <span v-if="target" class="absolute" style="top: -13px; left: -2px; z-index: 2">
-                  <PushPin :animate="false" />
-                </span>
-              </span>
-
-              <!-- pinned: short handwritten note. unpinned: prompt + arrow to hole -->
-              <template v-if="target">
-                <span class="scribble text-base leading-tight" style="color: var(--pen)">
-                  hold {{ person.pinnedState.toLowerCase() }}
-                </span>
-              </template>
-              <template v-else>
-                <InkArrow :seed="`pin:${person.id}`" dir="left" :width="26" :height="16" />
-                <span class="scribble text-sm" style="color: var(--faded)">pin a vibe?</span>
-              </template>
-            </div>
-
-            <!-- Vibe menu — torn paper scrap -->
-            <div
-              v-if="vibeMenuOpen"
-              class="absolute left-0 top-full z-30 mt-1 p-3"
-              style="background: var(--paper); border: 1.5px solid var(--faded); min-width: 180px; box-shadow: 0 4px 14px rgba(0,0,0,0.18);"
-            >
-              <button
-                v-for="option in MAINTAINABLE_STATES"
-                :key="option.state"
-                type="button"
-                class="block w-full text-left py-1"
-                :style="scatter(`vibe-opt:${option.state}`, { r: 1.5, x: 3, y: 1 })"
-                @click.stop="pinState(option.state)"
-              >
-                <span class="scribble text-base" style="color: var(--pen)">{{ option.state.toLowerCase() }}</span>
-                <span class="print text-[10px] ml-2" style="color: var(--faded)">
-                  {{ option.minBAC.toFixed(2) }}–{{ option.maxBAC.toFixed(2) }}%
-                </span>
-              </button>
-              <button
-                v-if="target"
-                type="button"
-                class="block w-full text-left py-1 scribble text-sm mt-1"
-                style="color: var(--pen)"
-                @click.stop="pinState(null)"
-              >
-                unpin — free pour
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- BAC reading -->
-        <p
-          class="print mt-1 text-base font-bold"
-          :style="{ transform: `translateX(${scatterRand('bac-dx:'+person.id)() * 4}px)` }"
-        >
-          {{ bac.toFixed(3) }}%
-          <span class="text-[10px] font-normal" style="color: var(--faded)">est.</span>
+    <div class="px-[22px] pb-7 pt-7">
+      <!-- ── masthead ─────────────────────────────────────────── -->
+      <header class="relative text-center">
+        <p class="dots text-[30px]" style="letter-spacing: 0.06em">EXPERIENCE</p>
+        <p class="print mt-1.5 text-[10px] font-bold" style="letter-spacing: 0.62em; padding-left: 0.62em">ALCOHOL</p>
+        <p class="print mt-1.5 text-[8.5px]" style="letter-spacing: 0.2em; color: var(--print-soft)">
+          OPEN LATE · POUR KIND · GO HOME SAFE
         </p>
+        <Doodle v-if="marks[0]" class="absolute -left-2 -top-4" :seed="`${person.id}:0`" v-bind="marks[0]" />
+        <Doodle v-if="marks[1]" class="absolute right-3 top-7" :seed="`${person.id}:1`" v-bind="marks[1]" />
+      </header>
 
-        <!-- Stamp verdict at the right margin, annotation pointing at it -->
-        <div class="mt-3 flex flex-wrap items-center justify-end gap-1.5" :style="scatter(`stamp:${person.id}`, { r: 1, x: 2, y: 1 })">
-          <span class="scribble text-sm text-right" style="color: var(--pen)">
-            {{ pourCopy }}
-          </span>
-          <InkArrow :seed="`pour:${person.id}`" dir="right" :width="30" :height="18" />
-          <StampVerdict :verdict="stamp" />
-        </div>
+      <div class="rule mt-3"></div>
+      <div class="print mt-1.5 flex justify-between text-[9.5px]" style="letter-spacing: 0.1em">
+        <span>TBL {{ numbers.table }}</span>
+        <span>TAB №{{ numbers.tab }}</span>
+        <span>OPEN {{ opened }}</span>
       </div>
+      <div class="rule mt-1.5"></div>
 
-      <!-- 5. Pour stickers -->
-      <div class="mt-4">
-        <PourTiles :person="person" />
-      </div>
+      <!-- ── a new face: ask, don't assume ───────────────────── -->
+      <IntroFlow v-if="person.needsIntro" :person="person" :seat="seat" />
 
-      <!-- 6. The ledger: every pour, printed in aligned columns -->
-      <div v-if="receiptLines.length" class="mt-4 pt-2" style="border-top: 1.5px dashed var(--faded);">
-        <ul class="print text-[11px]">
-          <li
-            v-for="line in receiptLines"
-            :key="line.id"
-            class="items-baseline gap-1.5 py-0.5"
-            style="display: grid"
-            :style="{ gridTemplateColumns: LEDGER_COLS }"
+      <template v-else>
+        <!-- ── guest ─────────────────────────────────────────── -->
+        <section class="relative mt-3">
+          <IdentityLine :person="person" :seat="seat" :pours="events.length" />
+          <p v-if="heldBy" class="pen mt-1 text-[18px]" style="opacity: 0.6">{{ heldBy }}</p>
+          <Doodle v-if="marks[2]" class="absolute -bottom-5 right-24" :seed="`${person.id}:2`" v-bind="marks[2]" />
+        </section>
+
+        <div class="rule--double mt-4"></div>
+
+        <!-- ── how it's going ────────────────────────────────── -->
+        <section class="relative mt-4">
+          <button type="button" class="block origin-left text-left" :style="feelingTilt" aria-label="Underline it again" @click="reUnderline">
+            <p class="pen pen--hard text-[54px] leading-[0.78]">{{ feeling.state.toLowerCase() }}</p>
+            <FeelingUnderline :seed="`${person.id}:${feeling.state}`" :bac="bac" :nudge="underlineNudge" class="mt-0.5" />
+          </button>
+          <Doodle v-if="marks[3]" class="absolute -top-5 right-4" :seed="`${person.id}:3`" v-bind="marks[3]" />
+
+          <div class="relative mt-3 flex items-end justify-between gap-2">
+            <div class="flex items-end gap-1.5">
+              <span class="dots text-[46px]">{{ bacParts[0] }}<span class="dot-point"></span>{{ bacParts[1] }}</span>
+              <span class="print mb-0.5 text-[9px] leading-[1.25]" style="letter-spacing: 0.14em; color: var(--print-soft)">%<br />EST.</span>
+            </div>
+            <div class="mb-1 mr-1">
+              <VerdictNote :verdict="verdict" :seed="String(person.id)" :size="30" />
+            </div>
+          </div>
+
+          <div class="mt-2.5 flex items-center gap-1.5" :style="tilt('pour-note', { r: 1.5, x: 3, y: 1 })">
+            <p class="pen text-[26px]">{{ pourNote }}</p>
+          </div>
+        </section>
+
+        <!-- ── the night so far ──────────────────────────────── -->
+        <section class="relative mt-4">
+          <!-- a friend leans over and writes something -->
+          <div
+            v-if="note"
+            class="pointer-events-none absolute left-0 top-0 z-[1] flex items-start gap-1"
+            :style="{ ...tilt('friend-note', { r: 3, x: 3, y: 2 }), color: note.ink }"
           >
-            <span style="color: var(--faded)">{{ line.time }}</span>
-            <span class="truncate" :style="{ color: line.isCustom ? 'var(--pen)' : undefined }">{{ line.type }}</span>
-            <span class="text-right" style="color: var(--faded)">{{ line.ml }}</span>
-            <span class="text-right" style="color: var(--faded)">{{ line.abv }}</span>
-            <span class="scribble text-center" style="color: var(--pen)">{{ line.isCustom ? '✶' : '' }}</span>
+            <InkArrow :seed="`note:${person.id}`" dir="left" :width="22" :height="26" :color="note.ink" style="transform: rotate(38deg)" />
+            <p class="pen text-[20px] leading-[1.05]">
+              {{ note.text }}<br />
+              <span class="text-[16px]" style="opacity: 0.8">— {{ note.from }}</span>
+            </p>
+          </div>
+          <ThermalChart :person="person" />
+          <div class="mt-1.5">
+            <VibeScale :person="person" />
+          </div>
+          <div v-if="!person.pinnedState" class="-mt-1 flex items-center justify-center gap-1" style="opacity: 0.75">
+            <InkArrow :seed="`circle-hint:${person.id}`" dir="left" :width="26" :height="18" />
+            <p class="pen text-[19px]">circle one to hold it</p>
+          </div>
+        </section>
+
+        <!-- ── ledger ────────────────────────────────────────── -->
+        <div class="rule--double mt-4"></div>
+        <ul v-if="lines.length" class="print mt-2.5 text-[10.5px]" style="letter-spacing: 0.04em">
+          <li
+            v-for="line in lines"
+            :key="line.id"
+            class="grid items-baseline gap-x-1.5 py-[3px]"
+            :style="{ gridTemplateColumns: LEDGER_COLS, animation: line.fresh ? 'print-line 520ms steps(12) both' : undefined }"
+          >
+            <span style="color: var(--print-soft)">{{ line.time }}</span>
+            <span class="truncate">
+              {{ line.type }}<span v-if="line.isCustom" class="pen ml-1 text-[15px]">✶</span>
+            </span>
+            <span class="text-right" style="color: var(--print-soft)">{{ line.ml }}</span>
+            <span class="text-right" style="color: var(--print-soft)">{{ line.abv }}</span>
             <span class="text-right">{{ line.delta }}</span>
           </li>
         </ul>
-      </div>
-
-      <!-- 7. Small print + leave / close lines -->
-      <div class="mt-5 pt-3" style="border-top: 1px dashed var(--faded);">
-        <p
-          class="print text-center text-[10px] leading-5"
-          style="color: var(--faded)"
-          :style="{ transform: `translateX(${(scatterRand('small-print:'+person.id)() * 2 - 1) * 2}px)` }"
-        >
-          estimates only · never a reason to drive
+        <p v-else class="print mt-3 text-center text-[10px]" style="letter-spacing: 0.3em; color: var(--print-soft)">
+          — NO POURS YET —
         </p>
 
-        <!-- left the bar (only when others remain) -->
-        <p
-          v-if="canDeactivate"
-          class="scribble text-center text-sm mt-2 cursor-pointer"
-          style="color: var(--pen); opacity: 0.8"
-          :style="{ transform: scatter('leave-bar:'+person.id, { r: 1.4, x: 2, y: 0 }).transform }"
-          @click="leaveBar"
-        >
-          {{ person.name?.trim() || 'they' }} left the bar →
+        <div class="rule mt-2.5"></div>
+        <div class="print relative mt-2 text-[10.5px]" style="letter-spacing: 0.08em">
+          <div class="flex items-baseline justify-between">
+            <span class="font-bold" style="letter-spacing: 0.3em">POURS</span>
+            <span class="dots text-[24px]">{{ totals.pours }}</span>
+          </div>
+          <div class="mt-1 flex justify-between"><span>STD DRINKS</span><span>{{ totals.std }}</span></div>
+          <div class="mt-0.5 flex justify-between"><span>PEAK EST.</span><span>{{ totals.peak }}%</span></div>
+          <Doodle v-if="marks[4]" class="absolute left-[44%] top-0" :seed="`${person.id}:4`" v-bind="marks[4]" />
+        </div>
+        <div class="rule--double mt-3"></div>
+
+        <!-- ── small print ───────────────────────────────────── -->
+        <div class="relative mt-4">
+          <Barcode :seed="`${store.session.id}:${person.id}`" />
+          <Doodle v-if="marks[5]" class="absolute left-0 top-1" :seed="`${person.id}:5`" v-bind="marks[5]" />
+          <Doodle v-if="marks[6]" class="absolute right-2 top-0" :seed="`${person.id}:6`" v-bind="marks[6]" />
+        </div>
+        <p class="print mt-3 text-center text-[8.5px] leading-[1.6]" style="letter-spacing: 0.16em; color: var(--print-soft)">
+          ESTIMATES ONLY · NEVER A REASON TO DRIVE<br />
+          *** DRINK WATER · THANK YOU ***
         </p>
 
-        <!-- CLOSE TAB inline two-tap -->
-        <p
-          v-if="hasEvents"
-          class="print text-center text-[11px] tracking-widest mt-2 cursor-pointer"
-          :style="{
-            color: closingConfirm ? 'var(--pen)' : 'var(--faded)',
-            transform: scatter('close-tab:'+person.id, { r: 0.8, x: 2, y: 0 }).transform,
-          }"
-          @click="handleCloseTab"
-        >
-          {{ closingConfirm ? '— — SURE? TAP AGAIN — —' : '— — CLOSE TAB — —' }}
-        </p>
+        <!-- ── walking away ──────────────────────────────────── -->
+        <div class="relative mt-5 flex items-center justify-center">
+          <button v-if="canLeave" type="button" class="pen text-[22px]" :style="tilt('leave', { r: 2, x: 4, y: 0 })" @click="leaveBar">
+            {{ person.name?.trim() || "they" }} left the bar →
+          </button>
+          <Doodle v-if="marks[7]" class="absolute -top-3 right-2" :seed="`${person.id}:7`" v-bind="marks[7]" />
+        </div>
+
         <button
-          v-if="closingConfirm"
+          v-if="store.session.events.length"
           type="button"
-          class="print block mx-auto mt-1 text-[10px] underline"
-          style="color: var(--faded)"
-          @click="closingConfirm = false"
+          class="print mt-4 flex w-full items-center gap-2 text-[10px]"
+          style="letter-spacing: 0.24em"
+          :style="{ color: closing ? 'var(--pen)' : 'var(--print-soft)' }"
+          @click="closeTab"
         >
-          keep it open
+          <span class="rule--dots flex-1"></span>
+          <span aria-hidden="true" class="text-[13px]">✂</span>
+          <span>{{ closing ? "SURE? TAP TO CLOSE" : "CLOSE THE TAB" }}</span>
+          <span class="rule--dots flex-1"></span>
         </button>
-      </div>
+        <button v-if="closing" type="button" class="pen mx-auto mt-2 block text-[20px]" @click="closing = false">
+          no — keep it open
+        </button>
+      </template>
     </div>
-  </div>
+  </ReceiptPaper>
 </template>

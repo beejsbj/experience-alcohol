@@ -8,10 +8,10 @@ export const BAC_CONSTANTS = {
   },
 };
 
-// Ink tones a person can claim for their line/avatar.
-// Amber is reserved for the dark table chrome — it's too pale to read as pen
-// on the cream paper, so it's not a selectable ink.
-export const PERSON_COLORS = ["#C7521F", "#8C9A54", "#2B3A8F", "#B85C7A"];
+// Pens on the bar: the inks a person can claim for their receipt. Real
+// ballpoint and felt-tip colours, dark enough to read on thermal paper under a
+// warm lamp. Amber is reserved for the dark table, never ink on paper.
+export const PERSON_COLORS = ["#C7521F", "#2B3A8F", "#2F6B45", "#8A3A78", "#1F6F7A"];
 
 export const DRINKS = [
   { type: "beer", abv: 0.05, volume: 12 },
@@ -93,3 +93,26 @@ export const MAINTAINABLE_STATES = FEELING_STATES.filter((state) =>
     state.state
   )
 );
+
+// What a house special comes in. Picking one fills in a sensible pour and
+// strength (still editable), and decides which glass sits on the bar mat.
+export const VESSELS = [
+  { key: "pint", label: "pint", volume: 16, abv: 0.05, kind: "beer" },
+  { key: "mug", label: "mug", volume: 20, abv: 0.05, kind: "mug" },
+  { key: "can", label: "can", volume: 12, abv: 0.05, kind: "can" },
+  { key: "bottle", label: "bottle", volume: 12, abv: 0.05, kind: "bottle" },
+  { key: "wine", label: "wine", volume: 5, abv: 0.12, kind: "wine" },
+  { key: "flute", label: "bubbly", volume: 5, abv: 0.11, kind: "flute" },
+  { key: "highball", label: "highball", volume: 10, abv: 0.06, kind: "highball" },
+  { key: "rocks", label: "on the rocks", volume: 2, abv: 0.4, kind: "custom" },
+];
+
+// Rough strengths to circle instead of knowing the exact %.
+export const STRENGTHS = [
+  { label: "light", abv: 4 },
+  { label: "beer", abv: 5 },
+  { label: "strong", abv: 8 },
+  { label: "wine", abv: 12 },
+  { label: "fortified", abv: 18 },
+  { label: "spirit", abv: 40 },
+];

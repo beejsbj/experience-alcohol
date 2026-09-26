@@ -1,64 +1,61 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useSessionStore } from "../stores/session";
 import { PERSON_COLORS } from "../constants";
-import { scatter } from "../utils/scatter";
+import { scatterRand } from "../utils/scatter";
+import { triggerHaptic } from "../utils/haptics";
 
-const props = defineProps({ person: { type: Object, required: true } });
+// Where the bartender tested the pen. Tap it to grab the next pen off the
+// bar — every mark on the receipt switches to that ink.
+const props = defineProps({
+  person: { type: Object, required: true },
+  inline: { type: Boolean, default: false }, // sit in the flow instead of the corner
+});
 const store = useSessionStore();
-const expanded = ref(false);
-const rootRef = ref(null);
+const redrawn = ref(0);
 
-const handleDocClick = (e) => {
-  if (!rootRef.value?.contains(e.target)) expanded.value = false;
-};
-onMounted(() => document.addEventListener("click", handleDocClick));
-onBeforeUnmount(() => document.removeEventListener("click", handleDocClick));
+const squiggle = computed(() => {
+  const rand = scatterRand(`pen-test:${props.person.id}:${props.person.color}`);
+  let d = `M3 ${14 + rand() * 4}`;
+  let x = 3;
+  while (x < 40) {
+    const nx = x + 4 + rand() * 3;
+    d += ` Q${(x + nx) / 2} ${rand() > 0.5 ? 2 + rand() * 4 : 18 + rand() * 4} ${nx.toFixed(1)} ${(8 + rand() * 8).toFixed(1)}`;
+    x = nx;
+  }
+  return d;
+});
 
-const setColor = (color) => {
-  store.updatePerson(props.person.id, { color });
-  expanded.value = false;
+const nextPen = () => {
+  const i = PERSON_COLORS.indexOf(props.person.color);
+  store.updatePerson(props.person.id, { color: PERSON_COLORS[(i + 1) % PERSON_COLORS.length] });
+  redrawn.value += 1;
+  triggerHaptic("selection");
 };
 </script>
 
 <template>
-  <div
-    ref="rootRef"
-    class="absolute z-10 flex flex-col items-end gap-1"
-    style="top: 2px; right: 2px"
-    :style="{ ...scatter(`swatch:${person.id}`, { r: 8, x: 2, y: 2 }), top: '2px', right: '2px' }"
+  <button
+    type="button"
+    class="z-10 p-2"
+    :class="inline ? 'relative' : 'absolute'"
+    :style="inline ? 'transform: rotate(-4deg)' : 'top: 6px; right: 6px; transform: rotate(-8deg)'"
+    aria-label="Grab a different pen"
+    @click.stop="nextPen"
   >
-    <button type="button" aria-label="Pick ink color" @click.stop="expanded = !expanded">
-      <svg width="34" height="26" viewBox="0 0 34 26" aria-hidden="true">
-        <path
-          d="M3 21 Q8 4 11 14 Q13 22 16 8 Q18 1 21 13 Q23 20 26 9 Q28 3 31 15"
-          fill="none"
-          :stroke="person.color"
-          stroke-width="4.5"
-          stroke-linecap="round"
-          opacity="0.85"
-        />
-      </svg>
-    </button>
-    <div v-if="expanded" class="flex flex-col gap-0.5">
-      <button
-        v-for="color in PERSON_COLORS"
-        :key="color"
-        type="button"
-        :aria-label="`Set ink color ${color}`"
-        @click.stop="setColor(color)"
-      >
-        <svg width="26" height="18" viewBox="0 0 26 18" aria-hidden="true">
-          <path
-            d="M2 14 Q6 3 9 10 Q11 16 14 6 Q16 1 19 9 Q21 14 24 7"
-            fill="none"
-            :stroke="color"
-            :stroke-width="color === person.color ? 5 : 3.5"
-            stroke-linecap="round"
-            opacity="0.9"
-          />
-        </svg>
-      </button>
-    </div>
-  </div>
+    <svg width="44" height="24" viewBox="0 0 44 24" aria-hidden="true" class="overflow-visible">
+      <path
+        :key="redrawn"
+        :d="squiggle"
+        fill="none"
+        :stroke="person.color"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        pathLength="300"
+        stroke-dasharray="300"
+        :style="redrawn ? 'animation: pen-draw 380ms ease-out both; --len: 300' : ''"
+      />
+    </svg>
+  </button>
 </template>
