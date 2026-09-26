@@ -112,6 +112,7 @@ export const VESSELS = [
 
 // Rough strengths to circle instead of knowing the exact %.
 export const STRENGTHS = [
+  { label: "zero", abv: 0 },
   { label: "light", abv: 4 },
   { label: "beer", abv: 5 },
   { label: "strong", abv: 8 },
