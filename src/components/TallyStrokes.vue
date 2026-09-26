@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { scatterRand } from "../utils/scatter";
 
 const props = defineProps({
@@ -46,6 +46,17 @@ const strokes = computed(() => {
 });
 
 const width = computed(() => Math.max(1, Math.ceil(props.count / 5)) * 28);
+
+// Stroke i is pour i+1, so a new pour draws only its own stroke; the ones
+// already down stay put. Nothing animates on first sight of the paper.
+const settled = ref(props.count);
+watch(
+  () => props.count,
+  (n, was) => {
+    settled.value = Math.min(was, n);
+  }
+);
+const drawing = (index) => index >= settled.value;
 </script>
 
 <template>
@@ -63,6 +74,26 @@ const width = computed(() => Math.max(1, Math.ceil(props.count / 5)) * 28);
       :stroke="color"
       stroke-width="1.8"
       stroke-linecap="round"
+      pathLength="100"
+      :class="{ 'tally-new': drawing(index) }"
+      @animationend="settled = Math.max(settled, index + 1)"
     />
   </svg>
 </template>
+
+<style scoped>
+/* a quick pen flick: fast out of the gate, eases off as the nib lifts */
+.tally-new {
+  stroke-dasharray: 100;
+  animation:
+    pen-draw 240ms cubic-bezier(0.3, 0.7, 0.4, 1) 80ms backwards,
+    ink-pool 180ms ease-out 300ms;
+  --len: 100;
+}
+/* the nib lifts and a little ink pools at the end of the stroke */
+@keyframes ink-pool {
+  40% {
+    stroke-width: 2.4;
+  }
+}
+</style>
