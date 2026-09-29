@@ -52,6 +52,7 @@ export const useRoomStore = defineStore("room", () => {
   const error = ref(null);
 
   let transport = null;
+  let connectionGeneration = 0;
   let connectTransport = defaultTransport;
   let sendTimer = null;
   let lastSent = null;
@@ -122,6 +123,7 @@ export const useRoomStore = defineStore("room", () => {
     status.value = "searching";
     error.value = null;
     const joining = code.value;
+    const generation = ++connectionGeneration;
     const connection = await connectTransport({
       code: joining,
       onPeerJoin: (peerId) => {
@@ -148,7 +150,7 @@ export const useRoomStore = defineStore("room", () => {
       },
     });
     // Left (or switched rooms) while the transport was loading.
-    if (code.value !== joining) return connection.leave();
+    if (code.value !== joining || generation !== connectionGeneration) return connection.leave();
     transport = connection;
     transport.send("hello", hello());
     sendState();
@@ -156,6 +158,7 @@ export const useRoomStore = defineStore("room", () => {
 
   // `parting` is a last snapshot to hand the table before walking away.
   function disconnect(parting = null) {
+    connectionGeneration++;
     clearTimeout(sendTimer);
     const closing = transport;
     if (closing && parting) {
@@ -191,6 +194,12 @@ export const useRoomStore = defineStore("room", () => {
     roomSessionId.value = null;
     myPersonId.value = null;
     persist();
+    await connect();
+  }
+
+  async function retry() {
+    if (!code.value) return;
+    disconnect();
     await connect();
   }
 
@@ -260,6 +269,7 @@ export const useRoomStore = defineStore("room", () => {
     heldElsewhere,
     startRoom,
     joinRoom,
+    retry,
     leaveRoom,
     claim,
     resume,
