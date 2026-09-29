@@ -38,7 +38,7 @@ export const parseRoomCode = (input) => {
 };
 
 const defaultTransport = (options) =>
-  import("../room/trysteroTransport").then((m) => m.connectTrystero(options));
+  import("../room/relayTransport").then((m) => m.connectRelay(options));
 
 export const useRoomStore = defineStore("room", () => {
   const session = useSessionStore();
@@ -150,6 +150,8 @@ export const useRoomStore = defineStore("room", () => {
     // Left (or switched rooms) while the transport was loading.
     if (code.value !== joining) return connection.leave();
     transport = connection;
+    transport.send("hello", hello());
+    sendState();
   }
 
   // `parting` is a last snapshot to hand the table before walking away.
