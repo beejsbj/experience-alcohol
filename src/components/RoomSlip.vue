@@ -186,7 +186,7 @@ const who = computed(() => {
         {{ who }}
       </p>
       <p v-if="room.error" class="pen mt-1 text-center text-[20px]" style="color: #e8836a">
-        couldn't reach them directly — same wifi helps
+        can't reach the table — check your signal
       </p>
       <p class="print mt-2 text-center text-[9px]" style="letter-spacing: 0.24em; color: var(--amber-soft)">
         BOTH PHONES OPEN · POURS SYNC LIVE

@@ -146,7 +146,7 @@ export const useRoomStore = defineStore("room", () => {
         }
       },
       onError: (message) => {
-        error.value = String(message);
+        error.value = message ? String(message) : null;
       },
     });
     // Left (or switched rooms) while the transport was loading.

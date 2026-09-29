@@ -91,6 +91,8 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
           if (next[type] != null && JSON.stringify(next[type]) !== JSON.stringify(previous?.record[type])) onMessage?.(type, next[type], id);
         }
       }
+      // back in touch — take the warning down
+      if (failed) onError?.(null);
       failures = 0; failed = false;
     } catch { if (!closed) failure(); }
     finally {
