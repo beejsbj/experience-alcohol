@@ -1,7 +1,7 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useSessionStore } from "./stores/session";
-import { useRoomStore } from "./stores/room";
+import { roomCodeFromHash, useRoomStore } from "./stores/room";
 import { calculateBACAtTime } from "./utils/bac";
 import { useLiveNow } from "./composables/useLiveNow";
 import BarTop from "./components/BarTop.vue";
@@ -30,7 +30,14 @@ const showTable = () => { view.value = "table"; };
 const showDeck = () => { view.value = "deck"; };
 
 // Arriving by a friend's link: wait at the table view until it shows up.
-onMounted(() => room.resume());
+const joinFromHash = () => {
+  if (roomCodeFromHash(location.hash)) room.resume();
+};
+onMounted(() => {
+  room.resume();
+  window.addEventListener("hashchange", joinFromHash);
+});
+onBeforeUnmount(() => window.removeEventListener("hashchange", joinFromHash));
 watch(
   () => room.awaitingTable,
   (waiting) => { if (waiting) view.value = "table"; },

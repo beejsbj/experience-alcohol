@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useSessionStore } from "../stores/session";
 import { useRoomStore } from "../stores/room";
 import { useLiveNow } from "../composables/useLiveNow";
@@ -20,6 +20,19 @@ const store = useSessionStore();
 const room = useRoomStore();
 const slipOpen = ref(false);
 const now = useLiveNow();
+const searchExpired = ref(false);
+let searchTimer;
+const resetSearch = () => {
+  clearTimeout(searchTimer);
+  searchExpired.value = false;
+  if (room.awaitingTable) searchTimer = setTimeout(() => { searchExpired.value = true; }, 25000);
+};
+watch(() => room.awaitingTable, resetSearch, { immediate: true });
+onBeforeUnmount(() => clearTimeout(searchTimer));
+const retryTable = () => {
+  resetSearch();
+  room.retry();
+};
 
 const people = computed(() => store.activePeople);
 
@@ -80,7 +93,7 @@ const coasterLabel = computed(() => {
 });
 const coasterRing = computed(() =>
   room.inRoom
-    ? "PHONES AT THIS TABLE · PEER TO PEER · "
+    ? "PHONES AT THIS TABLE · PULL UP A CHAIR · "
     : "PULL UP A CHAIR · BRING A FRIEND · "
 );
 </script>
@@ -114,8 +127,14 @@ const coasterRing = computed(() =>
       </button>
     </header>
 
-    <p v-if="room.awaitingTable" class="pen mt-24 text-center text-[40px]" style="color: var(--amber)">finding the table…</p>
-    <p v-if="room.awaitingTable" class="pen mt-2 text-center text-[24px]" style="color: var(--amber-soft)">keep their app open too</p>
+    <div v-if="room.awaitingTable" class="mt-24 text-center" aria-live="polite">
+      <p class="pen text-[40px]" style="color: var(--amber)">{{ searchExpired ? "can't find the table" : "finding the table…" }}</p>
+      <div v-if="searchExpired" class="pen mt-2 flex justify-center gap-8 text-[28px]" style="color: var(--amber)">
+        <button type="button" class="px-2 py-2" @click="retryTable">try again</button>
+        <button type="button" class="px-2 py-2" @click="room.leaveRoom()">leave</button>
+      </div>
+      <p v-else class="pen mt-2 text-[24px]" style="color: var(--amber-soft)">keep their app open too</p>
+    </div>
 
     <p v-if="needsSeat" class="pen mt-5 text-[28px] leading-tight" style="color: var(--amber)">
       which one's you? tap your receipt — or tear a fresh one off the printer

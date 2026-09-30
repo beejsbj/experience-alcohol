@@ -131,6 +131,23 @@ describe("room table", () => {
     expect(guest.session.eventsFor(me)).toHaveLength(2);
   });
 
+  it("retry reconnects to the same code while still waiting for the table", async () => {
+    const leave = vi.fn();
+    const transport = vi.fn(async () => ({ send: vi.fn(), leave }));
+    const guest = makePhone();
+    await guest.room.resume({ hash: "#t=abcde-fghjk", transport });
+    const sessionId = guest.session.session.id;
+    await guest.room.retry();
+    expect(leave).toHaveBeenCalledTimes(1);
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(transport.mock.calls[1][0].code).toBe("abcde-fghjk");
+    expect(guest.room.awaitingTable).toBe(true);
+    expect(guest.session.session.id).toBe(sessionId);
+    transport.mock.calls[1][0].onMessage("state", { id: "table", people: [], events: [], customDrinks: [] }, "host");
+    expect(guest.room.awaitingTable).toBe(false);
+    guest.room.leaveRoom();
+  });
+
   it("closing the tab ends this phone's seat at the table", async () => {
     const host = makePhone();
     await host.room.resume({ hash: "", transport: bus });

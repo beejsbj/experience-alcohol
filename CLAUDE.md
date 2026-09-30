@@ -1,8 +1,8 @@
 # experience-alcohol
 
 Drink-tracker PWA styled as a pile of hand-annotated thermal receipts on a
-lamp-lit oak bar top ("Last Call", v3). Vue 3 (script setup) + Pinia + Tailwind 3 + Vite 5 + Vitest. No backend:
-all state in localStorage. Live at https://experience-alcohol.vercel.app.
+lamp-lit oak bar top ("Last Call", v3). Vue 3 (script setup) + Pinia + Tailwind 3 + Vite 5 + Vitest. Each phone keeps its state in localStorage; shared tables
+use a small encrypted relay. Live at https://experience-alcohol.vercel.app.
 
 ## Environment (read first)
 
@@ -52,9 +52,11 @@ all state in localStorage. Live at https://experience-alcohol.vercel.app.
   adopts the table's session, stashing a solo night with pours under
   `experience-alcohol:session:before-room`. `hello` messages say which
   receipt each phone holds. Closing the tab sends a last snapshot and leaves.
-  Transport is `src/room/trysteroTransport.js` (Trystero, WebRTC data
-  channels, signaling over public Nostr relays, SDP encrypted with the room
-  code); tests swap in an in-memory bus.
+  Transport is `src/room/relayTransport.js` → `/api/room` → Upstash Redis.
+  Records are encrypted with the code (PBKDF2 + AES-GCM); the server sees
+  only a SHA-256 room hash and ciphertext. Redis keys are `ea:room:*`, with
+  a 24 h TTL; phones poll and refresh their own record. Tests swap in an
+  in-memory bus. Local `/api` routes run under `vercel dev`, not `vite`.
 - `src/App.vue` — `BarTop` (oak planks, `RingStains`, lamp, `LampDust`
   canvas, BAC-driven vignette via `--drunk`) behind everything; switches
   `ReceiptPile` ⇄ `TableView` via fade transition.
@@ -121,5 +123,7 @@ all state in localStorage. Live at https://experience-alcohol.vercel.app.
   history is the source of truth).
 - Branch `redesign/doodled-tab`, PR #2. Merge only with explicit user
   approval. Commit style: `feat:`/`fix:`/`polish:`/`docs:` one-liners.
-- Rooms: no backend we run. Known limit — WebRTC without a TURN server can
-  fail across strict mobile carrier NATs; same wifi always works.
+- Rooms need a small backend we run: one Vercel function + Upstash Redis.
+  The database is shared; this app's keys are prefixed `ea:`. HTTPS relay
+  traffic works across mobile carrier NATs. Vercel Preview and Production
+  need `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
