@@ -1,8 +1,9 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { scatterRand } from "../utils/scatter";
 
-// ♀ / ♂ drawn by hand rather than set in type: a wobbly ring and its mark.
+// ♀ / ♂ drawn by hand rather than set in type: a wobbly ring and its mark,
+// the ring coloured in with a quick felt-tip scribble — pink or blue.
 const props = defineProps({
   kind: { type: String, default: "female" }, // female | male
   seed: { type: String, default: "glyph" },
@@ -10,11 +11,40 @@ const props = defineProps({
   weight: { type: Number, default: 2 },
 });
 
+const FELT = { female: "#e0619a", male: "#3a7bd5" };
+const centre = computed(() => (props.kind === "male" ? [13, 21] : [16, 13]));
+
+// Back-and-forth hatching across the ring, a little past its edge in places.
+const scribble = computed(() => {
+  const rand = scatterRand(`scribble:${props.seed}:${props.kind}`);
+  const [cx, cy] = centre.value;
+  const r = 8;
+  const a = (-38 + (rand() * 2 - 1) * 8) * (Math.PI / 180);
+  const [ux, uy, vx, vy] = [Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a)];
+  const pts = [];
+  let side = 1;
+  for (let d = -r * 0.82; d <= r * 0.82; d += 2.1 + rand() * 0.5) {
+    const half = Math.sqrt(r * r - d * d) * (0.88 + rand() * 0.2);
+    const t = side * half;
+    pts.push(`${(cx + ux * t + vx * d).toFixed(1)} ${(cy + uy * t + vy * d).toFixed(1)}`);
+    side = -side;
+  }
+  return `M${pts.join(" L")}`;
+});
+
+// Swapping bodies scribbles the new colour in; first sight is already dry.
+const fresh = ref(false);
+watch(
+  () => props.kind,
+  () => {
+    fresh.value = true;
+  }
+);
+
 const paths = computed(() => {
   const rand = scatterRand(`glyph:${props.seed}:${props.kind}`);
   const j = (n) => (rand() * 2 - 1) * n;
-  const cx = props.kind === "male" ? 13 : 16;
-  const cy = props.kind === "male" ? 21 : 13;
+  const [cx, cy] = centre.value;
   const r = 8.5;
   const pts = [];
   const start = -1.2 + j(0.4);
@@ -38,6 +68,20 @@ const paths = computed(() => {
 <template>
   <svg :width="size" :height="size * 1.1" viewBox="0 0 32 35" class="overflow-visible" aria-hidden="true">
     <path
+      :key="kind"
+      :d="scribble"
+      fill="none"
+      :stroke="FELT[kind] ?? FELT.male"
+      stroke-width="2.6"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-opacity="0.72"
+      pathLength="100"
+      :class="{ 'scribble-new': fresh }"
+      style="mix-blend-mode: multiply"
+      @animationend="fresh = false"
+    />
+    <path
       v-for="(d, i) in paths"
       :key="i"
       :d="d"
@@ -49,3 +93,11 @@ const paths = computed(() => {
     />
   </svg>
 </template>
+
+<style scoped>
+.scribble-new {
+  stroke-dasharray: 100;
+  --len: 100;
+  animation: pen-draw 360ms cubic-bezier(0.45, 0.2, 0.3, 1) backwards;
+}
+</style>

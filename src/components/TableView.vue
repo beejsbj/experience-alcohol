@@ -5,7 +5,7 @@ import { useRoomStore } from "../stores/room";
 import { useLiveNow } from "../composables/useLiveNow";
 import { calculateBACAtTime } from "../utils/bac";
 import { feelingFor, stampFor } from "../utils/feelings";
-import { clock } from "../utils/receipt";
+import { clock, pourCount } from "../utils/receipt";
 import { scatterRand } from "../utils/scatter";
 import ReceiptPaper from "./ReceiptPaper.vue";
 import TallyStrokes from "./TallyStrokes.vue";
@@ -34,7 +34,7 @@ const scraps = computed(() =>
       bac: bac.toFixed(3).split("."),
       feeling: feelingFor(bac).state.toLowerCase(),
       stamp: stampFor(bac, person.pinnedState),
-      pours: events.length,
+      pours: pourCount(events),
       // tossed, not placed
       style: {
         transform: `translate(${((rand() * 2 - 1) * 8).toFixed(1)}px, ${((rand() * 2 - 1) * 6).toFixed(1)}px) rotate(${((rand() * 2 - 1) * 5).toFixed(2)}deg)`,

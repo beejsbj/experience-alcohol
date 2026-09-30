@@ -3,6 +3,9 @@
 
 import { BAC_CONSTANTS } from "../constants";
 
+/** Water, soda, a mocktail: 0% — logged, but never moves the estimate. */
+export const isSoft = (drink) => !((drink.abv ?? drink.alcoholContent ?? 0) > 0);
+
 /**
  * Calculate BAC increase from a single drink using Widmark formula (no time component)
  * @param {number} weight       Weight in kg

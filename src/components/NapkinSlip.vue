@@ -6,6 +6,7 @@ import { triggerHaptic } from "../utils/haptics";
 import { scatter, scatterRand } from "../utils/scatter";
 import WriteOn from "./WriteOn.vue";
 import VesselIcon from "./VesselIcon.vue";
+import ScrubNumber from "./ScrubNumber.vue";
 
 // A house special, written on a cocktail napkin. Circle what it came in
 // (that fills in a sensible pour and strength), circle a rough strength if
@@ -43,15 +44,6 @@ const ring = (key, w = 60, h = 30) => {
     pts.push(`${(w / 2 + Math.cos(a) * (w / 2 - 2) * k).toFixed(1)} ${(h / 2 + Math.sin(a) * (h / 2 - 2) * k).toFixed(1)}`);
   }
   return `M${pts.join(" L")}`;
-};
-
-// The numbers read as written-on, not typed-into: tap one to scratch a new one.
-const editing = ref(null);
-const abvInput = ref(null);
-const volInput = ref(null);
-const edit = (which) => {
-  editing.value = which;
-  setTimeout(() => (which === "abv" ? abvInput : volInput).value?.focus(), 50);
 };
 
 // No name? Call it what it came in; don't clash with one already on the mat.
@@ -102,37 +94,10 @@ const save = () => {
       </div>
 
       <p class="pen mt-3 flex flex-wrap items-baseline justify-center gap-1.5 text-[24px]">
-        <span v-if="editing !== 'abv'" class="pen--hard cursor-pointer text-[32px]" @click="edit('abv')">{{ form.abvPercent }}</span>
-        <input
-          v-else
-          ref="abvInput"
-          v-model.number="form.abvPercent"
-          type="number"
-          inputmode="decimal"
-          min="1"
-          max="70"
-          step="0.5"
-          class="pen w-[2.2em] bg-transparent text-center outline-none"
-          style="font-size: 30px"
-          @blur="editing = null"
-          @keydown.enter="editing = null"
-        />
+        <!-- written on, not typed into: drag a number sideways to change it -->
+        <ScrubNumber v-model="form.abvPercent" class="pen--hard text-[32px]" :min="0" :max="70" :step="0.5" :px-per-step="7" label="Strength in percent — drag sideways" />
         <span>% strong,</span>
-        <span v-if="editing !== 'vol'" class="pen--hard cursor-pointer text-[32px]" @click="edit('vol')">{{ form.volume }}</span>
-        <input
-          v-else
-          ref="volInput"
-          v-model.number="form.volume"
-          type="number"
-          inputmode="decimal"
-          min="0.5"
-          max="40"
-          step="0.5"
-          class="pen w-[2.2em] bg-transparent text-center outline-none"
-          style="font-size: 30px"
-          @blur="editing = null"
-          @keydown.enter="editing = null"
-        />
+        <ScrubNumber v-model="form.volume" class="pen--hard text-[32px]" :min="0.5" :max="40" :step="0.5" :px-per-step="7" label="Size in ounces — drag sideways" />
         <span>oz</span>
       </p>
 

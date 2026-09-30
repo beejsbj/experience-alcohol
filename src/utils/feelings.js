@@ -1,7 +1,7 @@
 // Feeling states, stamp verdicts, and pour timing — the maintain engine.
 
 import { BAC_CONSTANTS, FEELING_STATES, MAINTAINABLE_STATES } from "../constants";
-import { calculateSingleDrinkBAC, calculateTimeUntilNextDrink } from "./bac";
+import { calculateSingleDrinkBAC, calculateTimeUntilNextDrink, isSoft } from "./bac";
 
 // Above this estimate the app stops giving pour timings entirely.
 export const CUTOFF_BAC = 0.25;
@@ -36,8 +36,10 @@ export function stampFor(bac, pinnedState = null) {
 /**
  * Minutes until `drink` can be poured without overshooting the pinned vibe
  * (or the default limit when nothing is pinned). Null means no more tonight.
+ * Water never waits — not even at cut-off, where it's the one thing to pour.
  */
 export function nextPourMinutes(bac, person, drink, pinnedState = null) {
+  if (isSoft(drink)) return 0;
   if (bac >= CUTOFF_BAC) return null;
 
   const nextDrinkBAC = calculateSingleDrinkBAC(

@@ -22,7 +22,7 @@ const now = useLiveNow();
 const napkinOpen = ref(false);
 const lifted = ref(null);
 
-const SIZES = { beer: 62, mug: 58, wine: 54, cocktail: 58, shot: 42, flute: 46, highball: 52, can: 50, bottle: 46, custom: 50 };
+const SIZES = { water: 52, beer: 62, mug: 58, wine: 54, cocktail: 58, shot: 42, flute: 46, highball: 52, can: 50, bottle: 46, custom: 50 };
 const VESSEL_KIND = Object.fromEntries(VESSELS.map((v) => [v.key, v.kind]));
 
 const events = computed(() => store.eventsFor(props.person.id));

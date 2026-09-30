@@ -1,10 +1,12 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useSessionStore } from "../stores/session";
 import { scatter } from "../utils/scatter";
 import WriteOn from "./WriteOn.vue";
 import TallyStrokes from "./TallyStrokes.vue";
 import SexGlyph from "./SexGlyph.vue";
+import ScrubNumber from "./ScrubNumber.vue";
+import WeightRuler from "./WeightRuler.vue";
 
 // Who this tab is for. The printer knows the seat; everything personal is
 // written in by hand over it — the name, the body, the weight — plus a tally.
@@ -16,8 +18,10 @@ const props = defineProps({
 
 const store = useSessionStore();
 
-const editingWeight = ref(false);
-const weightInput = ref(null);
+// Drag the written weight sideways to change it; tap it for the printed ruler.
+const rulerOpen = ref(false);
+const slip = ref(null);
+const weightEl = ref(null);
 
 const namePos = computed(() => scatter(`name-pos:${props.person.id}`, { r: 2.5, x: 3, y: 1 }));
 const bodyPos = computed(() => scatter(`body-pos:${props.person.id}`, { r: 3, x: 2, y: 1 }));
@@ -29,15 +33,19 @@ const toggleSex = () => {
   });
 };
 
-const startWeightEdit = () => {
-  editingWeight.value = true;
-  setTimeout(() => weightInput.value?.focus(), 50);
+const setWeight = (weight) => {
+  store.updatePerson(props.person.id, { weight });
 };
 
-const updateWeight = (e) => {
-  const v = Number(e.target.value);
-  if (v > 20 && v < 300) store.updatePerson(props.person.id, { weight: v });
+// Anywhere else on the paper puts the ruler away.
+const closeOnOutside = (e) => {
+  if (!slip.value?.contains(e.target) && !weightEl.value?.contains(e.target)) rulerOpen.value = false;
 };
+watch(rulerOpen, (open) => {
+  if (open) setTimeout(() => document.addEventListener("pointerdown", closeOnOutside, true));
+  else document.removeEventListener("pointerdown", closeOnOutside, true);
+});
+onBeforeUnmount(() => document.removeEventListener("pointerdown", closeOnOutside, true));
 
 const updateName = (name) => {
   store.updatePerson(props.person.id, { name });
@@ -68,29 +76,50 @@ const updateName = (name) => {
           <button type="button" class="p-1" :aria-label="`Body for the math — ${person.gender}; tap to switch`" @click="toggleSex">
             <SexGlyph :kind="person.gender" :seed="String(person.id)" :size="22" />
           </button>
-          <span v-if="!editingWeight" class="pen cursor-pointer text-[30px] leading-none" @click="startWeightEdit">
-            {{ person.weight }}<span class="text-[20px]">kg</span>
+          <span ref="weightEl" class="pen text-[30px] leading-none">
+            <ScrubNumber
+              :model-value="person.weight"
+              :min="30"
+              :max="250"
+              label="Weight in kilograms — drag sideways, or tap for the ruler"
+              @update:model-value="setWeight"
+              @tap="rulerOpen = !rulerOpen"
+            /><span class="text-[20px]">kg</span>
           </span>
-          <input
-            v-else
-            ref="weightInput"
-            type="number"
-            inputmode="numeric"
-            :value="person.weight"
-            min="30"
-            max="250"
-            class="pen w-16 bg-transparent text-right outline-none"
-            style="font-size: 30px"
-            @change="updateWeight"
-            @blur="editingWeight = false"
-            @keydown.enter="editingWeight = false"
-          />
         </p>
-        <div v-if="pours" class="mt-2" :style="tallyPos">
+        <!-- kept mounted from zero, so the very first stroke draws itself too -->
+        <div v-show="pours" class="mt-2" :style="tallyPos">
           <TallyStrokes :count="pours" :seed="`total:${person.id}`" :size="22" color="var(--pen)" />
         </div>
       </div>
     </div>
 
+    <!-- the printed ruler, torn off and laid over the paper — nothing shifts -->
+    <Transition name="slip">
+      <div v-if="rulerOpen" ref="slip" class="ruler-slip absolute right-0 top-full z-[5] mt-1 w-[260px] px-2 pb-1 pt-2">
+        <WeightRuler :model-value="person.weight" :min="40" :max="140" @update:model-value="setWeight" />
+      </div>
+    </Transition>
   </div>
 </template>
+
+<style scoped>
+.ruler-slip {
+  background: var(--paper, #f6f1e7);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.06),
+    0 8px 18px rgba(40, 25, 10, 0.28);
+  transform: rotate(-1.2deg);
+}
+.slip-enter-active,
+.slip-leave-active {
+  transition:
+    opacity 160ms ease,
+    transform 200ms cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+.slip-enter-from,
+.slip-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) rotate(-2.5deg);
+}
+</style>

@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import { MAINTAINABLE_STATES, PERSON_COLORS } from "../constants";
 import { calculateBACAtTime } from "../utils/bac";
 import { feelingFor } from "../utils/feelings";
+import { pourCount } from "../utils/receipt";
 import { mergeSessions, sessionFingerprint } from "../utils/roomMerge";
 
 const STORAGE_KEY = "experience-alcohol:session:v2";
@@ -238,7 +239,7 @@ export const useSessionStore = defineStore("session", () => {
         return {
           name: p.name,
           color: p.color,
-          drinks: events.length,
+          drinks: pourCount(events),
           peakBAC,
           peakState: feelingFor(peakBAC).state,
         };

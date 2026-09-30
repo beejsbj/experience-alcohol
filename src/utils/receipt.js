@@ -1,6 +1,6 @@
 // Printed facts for the receipt — pure, so the paper and the tests agree.
 
-import { calculateBACAtTime } from "./bac";
+import { calculateBACAtTime, isSoft } from "./bac";
 import { scatterRand } from "./scatter";
 
 // One US standard drink is 0.6 fl oz of pure alcohol.
@@ -9,6 +9,11 @@ const STANDARD_OZ = 0.6;
 export function standardDrinks(events) {
   const oz = events.reduce((sum, e) => sum + (e.abv ?? e.alcoholContent ?? 0) * e.volume, 0);
   return oz / STANDARD_OZ;
+}
+
+/** Drinks that count: water is on the ledger, but it isn't a pour. */
+export function pourCount(events) {
+  return events.filter((e) => !isSoft(e)).length;
 }
 
 /** Highest estimate of the night so far; BAC peaks just after each pour. */
