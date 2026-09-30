@@ -54,7 +54,7 @@ const nextPen = () => {
         stroke-linejoin="round"
         pathLength="300"
         stroke-dasharray="300"
-        :style="redrawn ? 'animation: pen-draw 380ms ease-out both; --len: 300' : ''"
+        :style="redrawn ? 'animation: pen-draw 380ms ease-out backwards; --len: 300' : ''"
       />
     </svg>
   </button>

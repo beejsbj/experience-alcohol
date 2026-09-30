@@ -12,9 +12,10 @@ const props = defineProps({
 });
 
 const style = computed(() => underlineStyle(props.seed, props.bac, props.nudge));
-const paths = computed(() =>
-  underlinePath(style.value, `${props.seed}:${props.nudge}`, props.width, Math.min(1, props.bac / 0.15))
-);
+// Wobble in twenty steps: the line is redrawn when the hand gets shakier, not
+// every time the estimate ticks down a thousandth.
+const wobble = computed(() => Math.round(Math.min(1, props.bac / 0.15) * 20) / 20);
+const paths = computed(() => underlinePath(style.value, `${props.seed}:${props.nudge}`, props.width, wobble.value));
 </script>
 
 <template>
@@ -30,7 +31,7 @@ const paths = computed(() =>
       stroke-linejoin="round"
       pathLength="500"
       stroke-dasharray="500"
-      style="animation: pen-draw 520ms ease-out both; --len: 500"
+      style="animation: pen-draw 520ms ease-out backwards; --len: 500"
       :style="{ animationDelay: `${i * 160}ms` }"
     />
   </svg>

@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { useSessionStore } from "../stores/session";
 import { useLiveNow } from "../composables/useLiveNow";
-import { calculateBACAtTime, projectBAC } from "../utils/bac";
+import { useNightSeries } from "../composables/useNightSeries";
 import { targetDetails } from "../utils/feelings";
 import { scatterRand } from "../utils/scatter";
 
@@ -15,7 +15,9 @@ const props = defineProps({
 });
 
 const store = useSessionStore();
-const now = useLiveNow();
+useLiveNow(); // keeps the clock running while a chart is on the paper
+const night = useNightSeries();
+const now = night.now;
 
 const W = 310;
 const H = 150;
@@ -28,28 +30,8 @@ const chart = computed(() => {
   const start = new Date(store.session.startedAt).getTime();
   const horizon = Math.max(now.value + 2 * HOUR, start + 3 * HOUR);
 
-  const series = store.activePeople.map((person) => {
-    const events = store.eventsFor(person.id);
-    const step = Math.max(60000, Math.floor((now.value - start) / 60) || 60000);
-    const past = [];
-    for (let t = start; t < now.value; t += step) {
-      past.push({ time: t, bac: calculateBACAtTime(events, person, t) });
-    }
-    // Sample just after each pour too, so the printed steps land true.
-    for (const e of events) {
-      const t = new Date(e.timestamp).getTime();
-      if (t > start && t < now.value) {
-        past.push({ time: t - 1, bac: calculateBACAtTime(events, person, t - 1) });
-        past.push({ time: t + 1, bac: calculateBACAtTime(events, person, t + 1) });
-      }
-    }
-    past.sort((a, b) => a.time - b.time);
-    past.push({ time: now.value, bac: calculateBACAtTime(events, person, now.value) });
-    const future = projectBAC(events, person, { from: now.value, hours: 2, stepMinutes: 6 });
-    return { person, past, future };
-  });
-
-  const peak = Math.max(0, ...series.flatMap((s) => [...s.past, ...s.future].map((p) => p.bac)));
+  const series = [...night.series.value.values()];
+  const peak = night.peak.value;
   const maxBAC = Math.max(0.12, peak * 1.12);
 
   const x = (t) => PAD.left + ((t - start) / (horizon - start)) * (W - PAD.left - PAD.right);
@@ -119,7 +101,7 @@ const chart = computed(() => {
     // speak to how fresh the last pour is instead.
     const events = store.eventsFor(props.person.id);
     const last = events.at(-1);
-    const sinceLast = last ? (now.value - new Date(last.timestamp).getTime()) / 60000 : Infinity;
+    const sinceLast = last ? (now.value - last.t) / 60000 : Infinity;
     const level = mine.series.past.at(-1).bac;
     const noteY = cy < PAD.top + 26 ? cy + 26 : cy - 16;
     note = {

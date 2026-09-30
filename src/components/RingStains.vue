@@ -51,7 +51,7 @@ const rings = computed(() =>
         left: `calc(${ring.x}% - ${ring.c}px)`,
         top: `calc(${ring.y}% - ${ring.c}px)`,
         opacity: ring.opacity,
-        animation: ring.fresh ? 'ring-set 700ms ease-out both' : undefined,
+        animation: ring.fresh ? 'ring-set 700ms ease-out backwards' : undefined,
       }"
     >
       <g :transform="`rotate(${ring.rot.toFixed(1)} ${ring.c} ${ring.c})`" filter="url(#ring-rough)">

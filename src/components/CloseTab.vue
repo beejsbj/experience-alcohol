@@ -27,7 +27,7 @@ const totalPours = computed(() => tab.value?.summary.reduce((s, e) => s + e.drin
 // When the scrawl goes on: just after the last printed line.
 const paidAt = computed(() => (12 + (tab.value?.summary.length ?? 0)) * 90 + 200);
 
-const line = (i) => ({ animation: `print-line 380ms steps(10) ${(i * 90).toFixed(0)}ms both` });
+const line = (i) => ({ animation: `print-line 380ms steps(10) ${(i * 90).toFixed(0)}ms backwards` });
 
 const fresh = () => {
   store.dismissLastTab();
@@ -37,7 +37,7 @@ const fresh = () => {
 
 <template>
   <div v-if="tab" class="keepsake flex-col py-10" role="dialog" aria-label="Closed tab summary">
-    <div class="relative w-full" style="max-width: 330px; transform: rotate(-1.5deg); animation: receipt-in 380ms ease-out both">
+    <div class="relative w-full" style="max-width: 330px; transform: rotate(-1.5deg); animation: receipt-in 380ms ease-out backwards">
       <ReceiptPaper seed="keepsake" :teeth="30">
         <div class="px-6 pb-8 pt-8 text-center">
           <p class="dots text-[26px]" style="letter-spacing: 0.06em" :style="line(0)">EXPERIENCE</p>
@@ -93,7 +93,7 @@ const fresh = () => {
         <div
           class="pointer-events-none absolute left-1/2 top-[34%] flex flex-col items-center"
           style="margin-left: -90px; width: 180px; transform: rotate(-11deg); --pen: #b3261e"
-          :style="{ animation: `char-in 300ms ease-out ${paidAt}ms both` }"
+          :style="{ animation: `char-in 300ms ease-out ${paidAt}ms backwards` }"
         >
           <svg class="absolute -inset-x-6 -inset-y-4 h-[calc(100%+2rem)] w-[calc(100%+3rem)] overflow-visible" viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true">
             <path
@@ -105,7 +105,7 @@ const fresh = () => {
               pathLength="500"
               stroke-dasharray="500"
               vector-effect="non-scaling-stroke"
-              :style="{ animation: `pen-draw 600ms ease-out ${paidAt + 200}ms both`, '--len': 500 }"
+              :style="{ animation: `pen-draw 600ms ease-out ${paidAt + 200}ms backwards`, '--len': 500 }"
             />
           </svg>
           <span class="pen pen--hard text-[64px] leading-none" style="color: #b3261e">paid!</span>

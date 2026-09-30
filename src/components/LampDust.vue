@@ -43,7 +43,8 @@ const resize = () => {
   if (!canvas) return;
   w = window.innerWidth;
   h = window.innerHeight;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  // soft motes don't need retina pixels; a quarter of the fill at 2x
+  const dpr = Math.min(1.25, window.devicePixelRatio || 1);
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -69,8 +70,14 @@ const draw = (time) => {
   ctx.globalAlpha = 1;
 };
 
+// Dust drifts a few px a second: 30fps is plenty, and while a receipt is in
+// hand the frame budget belongs to the paper.
+let last = -Infinity;
 const tick = (time) => {
-  draw(time);
+  if (time - last >= 32 && !document.documentElement.classList.contains("is-dragging")) {
+    last = time;
+    draw(time);
+  }
   raf = requestAnimationFrame(tick);
 };
 

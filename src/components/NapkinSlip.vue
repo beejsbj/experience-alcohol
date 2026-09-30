@@ -88,7 +88,7 @@ const save = () => {
           <VesselIcon :vessel="v.key" :size="30" />
           <span class="pen whitespace-nowrap text-[16px] leading-none">{{ v.label }}</span>
           <svg v-if="vessel === v.key" class="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 60 60" preserveAspectRatio="none" aria-hidden="true">
-            <path :d="ring(v.key, 60, 60)" fill="none" stroke="var(--pen)" stroke-width="1.6" vector-effect="non-scaling-stroke" style="animation: pen-draw 360ms ease-out both; --len: 300" pathLength="300" stroke-dasharray="300" />
+            <path :d="ring(v.key, 60, 60)" fill="none" stroke="var(--pen)" stroke-width="1.6" vector-effect="non-scaling-stroke" style="animation: pen-draw 360ms ease-out backwards; --len: 300" pathLength="300" stroke-dasharray="300" />
           </svg>
         </button>
       </div>
@@ -149,6 +149,6 @@ const save = () => {
     inset 0 0 0 14px #f4efe5,
     inset 0 0 0 15px rgba(140, 120, 90, 0.18),
     0 18px 40px rgba(0, 0, 0, 0.6);
-  animation: scrap-in 260ms ease-out both;
+  animation: scrap-in 260ms ease-out backwards;
 }
 </style>

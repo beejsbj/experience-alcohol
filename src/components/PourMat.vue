@@ -51,6 +51,9 @@ const glasses = computed(() => {
     else if (m > 0) {
       const from = afterLast.value === null ? m : nextPourMinutes(afterLast.value, props.person, drink, props.person.pinnedState) ?? m;
       fill = Math.max(0, Math.min(0.97, 1 - m / Math.max(m, from, 1)));
+      // In fortieths: the glass visibly tops up every few minutes, rather than
+      // restarting its fill transition (and repainting the mat) every second.
+      fill = Math.floor(fill * 40) / 40;
     }
     return {
       drink,
@@ -73,19 +76,29 @@ const glasses = computed(() => {
 // (no native scrolling anywhere). A drag never counts as a pour.
 const viewport = ref(null);
 const track = ref(null);
-const offset = ref(0);
 const minOffset = ref(0);
+let offset = 0;
 let slide = null;
 let swallowClick = false;
+
+// The track is moved by hand, not through reactive state: a drag frame
+// shouldn't re-render every glass on the mat.
+const place = (x, animate) => {
+  offset = x;
+  if (!track.value) return;
+  track.value.style.transition = animate ? "transform 320ms cubic-bezier(.2,1.1,.4,1)" : "none";
+  track.value.style.transform = `translateX(${x.toFixed(1)}px)`;
+};
+const clamp = (x) => Math.max(minOffset.value, Math.min(0, x));
 
 const measure = () => {
   if (!viewport.value || !track.value) return;
   minOffset.value = Math.min(0, viewport.value.clientWidth - track.value.scrollWidth);
-  offset.value = Math.max(minOffset.value, Math.min(0, offset.value));
+  place(clamp(offset), true);
 };
 
 const slideStart = (e) => {
-  slide = { x0: e.clientX, from: offset.value, moved: false, id: e.pointerId };
+  slide = { x0: e.clientX, from: offset, moved: false, id: e.pointerId };
 };
 const slideMove = (e) => {
   if (!slide || e.pointerId !== slide.id) return;
@@ -102,7 +115,7 @@ const slideMove = (e) => {
   let next = slide.from + dx;
   if (next > 0) next *= 0.35;
   if (next < minOffset.value) next = minOffset.value + (next - minOffset.value) * 0.35;
-  offset.value = next;
+  place(next, false);
 };
 const slideEnd = () => {
   if (!slide) return;
@@ -111,7 +124,7 @@ const slideEnd = () => {
     setTimeout(() => (swallowClick = false), 250);
   }
   slide = null;
-  offset.value = Math.max(minOffset.value, Math.min(0, offset.value));
+  place(clamp(offset), true);
 };
 const onClickCapture = (e) => {
   if (!swallowClick) return;
@@ -126,7 +139,7 @@ watch(
   (n, was) =>
     nextTick(() => {
       measure();
-      if (n > was) offset.value = minOffset.value;
+      if (n > was) place(minOffset.value, true);
     })
 );
 onMounted(() => {
@@ -167,7 +180,6 @@ const pour = (g) => {
           ref="track"
           class="flex h-full w-max items-center gap-1 pl-3 pr-2"
           :class="minOffset < 0 ? '' : 'mx-auto'"
-          :style="{ transform: `translateX(${offset.toFixed(1)}px)`, transition: slide ? 'none' : 'transform 320ms cubic-bezier(.2,1.1,.4,1)' }"
         >
           <button
             v-for="g in glasses"

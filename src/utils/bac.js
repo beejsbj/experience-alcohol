@@ -37,7 +37,7 @@ export function calculateBACAtTime(
   let total = 0;
 
   for (const drink of drinkHistory) {
-    const drinkTime = new Date(drink.timestamp).getTime();
+    const drinkTime = drink.t ?? new Date(drink.timestamp).getTime();
     if (drinkTime > targetTime) {
       continue;
     }
