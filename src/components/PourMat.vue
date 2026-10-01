@@ -2,8 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useSessionStore } from "../stores/session";
 import { useLiveNow } from "../composables/useLiveNow";
-import { calculateBACAtTime } from "../utils/bac";
-import { CUTOFF_BAC, nextPourMinutes } from "../utils/feelings";
+import { calculateBACAtTime, isSoft } from "../utils/bac";
+import { nextPourMinutes } from "../utils/feelings";
 import { DRINKS, VESSELS } from "../constants";
 import { triggerHaptic } from "../utils/haptics";
 import { scatterRand } from "../utils/scatter";
@@ -27,18 +27,17 @@ const VESSEL_KIND = Object.fromEntries(VESSELS.map((v) => [v.key, v.kind]));
 
 const events = computed(() => store.eventsFor(props.person.id));
 const bac = computed(() => calculateBACAtTime(events.value, props.person, now.value));
-const cutOff = computed(() => bac.value >= CUTOFF_BAC);
 
 // The BAC right after the last pour: how long this glass had to wait, from empty.
 const afterLast = computed(() => {
-  const last = events.value.at(-1);
+  const last = [...events.value].reverse().find((event) => !isSoft(event));
   if (!last) return null;
   const t = new Date(last.timestamp).getTime() + 1000;
   return calculateBACAtTime(events.value, props.person, t);
 });
 
 const waitFor = (drink) =>
-  cutOff.value ? null : nextPourMinutes(bac.value, props.person, drink, props.person.pinnedState);
+  nextPourMinutes(bac.value, props.person, drink, props.person.pinnedState);
 
 
 const glasses = computed(() => {

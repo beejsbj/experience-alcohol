@@ -40,6 +40,8 @@ const set = (v) => {
 
 const down = (e) => {
   drag = { x0: e.clientX, from: props.modelValue, moved: false, id: e.pointerId };
+  // This control owns the gesture from touch-down, including fast exits.
+  try { el.value.setPointerCapture(e.pointerId); } catch { /* synthetic pointer */ }
 };
 const move = (e) => {
   if (!drag || e.pointerId !== drag.id) return;
@@ -48,23 +50,26 @@ const move = (e) => {
     if (Math.abs(dx) < 4) return;
     drag.moved = true;
     scrubbing.value = true;
-    try {
-      el.value.setPointerCapture(e.pointerId);
-    } catch {
-      // synthetic pointer — moves still arrive by bubbling
-    }
   }
   set(drag.from + Math.trunc(dx / props.pxPerStep) * props.step);
 };
-const up = () => {
+const up = (e) => {
+  if (!drag || e.pointerId !== drag.id) return;
   if (drag && !drag.moved) {
     // a tap: show which way it goes, and let the parent offer more
     hint.value = true;
     setTimeout(() => (hint.value = false), 900);
     emit("tap");
   }
+  try { el.value.releasePointerCapture(drag.id); } catch { /* already released */ }
   drag = null;
   scrubbing.value = false;
+};
+
+const cancel = (e) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  drag.moved = true; // A cancelled gesture is never a tap.
+  up(e);
 };
 
 const keyDown = (e) => {
@@ -94,7 +99,7 @@ const keyDown = (e) => {
     @pointerdown.stop="down"
     @pointermove.stop="move"
     @pointerup.stop="up"
-    @pointercancel.stop="up"
+    @pointercancel.stop="cancel"
     @click.stop
   >
     <span class="scrub-value inline-block">{{ shown }}</span>

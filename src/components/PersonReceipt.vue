@@ -89,12 +89,23 @@ const lines = computed(() =>
 
 const LEDGER_COLS = "34px minmax(0,1fr) 42px 34px 40px";
 
-// The peak only moves when someone pours (BAC peaks just after a pour), so
-// this is keyed to the log, not the clock.
+// Peer clocks may be ahead: the peak follows pours as they come due. Only the
+// latest landed pour can move it, so the full history scan runs when that
+// changes, not on every clock tick.
+const landedAt = computed(() => {
+  let latest = 0;
+  for (const e of events.value) {
+    const t = (e.t ?? new Date(e.timestamp).getTime()) + 1000;
+    if (t <= now.value && t > latest) latest = t;
+  }
+  return latest;
+});
+const landedPeak = computed(() => peakBAC(events.value, props.person, landedAt.value));
+const peak = computed(() => Math.max(bac.value, landedPeak.value));
 const totals = computed(() => ({
   pours: pours.value,
   std: standardDrinks(events.value).toFixed(1),
-  peak: peakBAC(events.value, props.person, Date.now()).toFixed(3),
+  peak: peak.value.toFixed(3),
 }));
 
 // ── The table writes on it ────────────────────────────────────────────────

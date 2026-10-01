@@ -1,4 +1,4 @@
-import { validRoom, validDevice, keyFor, writeCommands, parseEntries } from "./_roomCore.js";
+import { validRoom, validDevice, roomCommand, parseEntries } from "./_roomCore.js";
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -25,14 +25,17 @@ export default async function handler(req, res) {
     return results;
   };
   try {
-    if (req.method === "GET") {
-      const [result] = await pipeline([["HGETALL", keyFor(room)]]);
-      if (!Array.isArray(result.result)) throw new Error("relay failed");
-      const { entries, stale } = parseEntries(result.result);
-      if (stale.length) await pipeline([["HDEL", keyFor(room), ...stale]]);
-      return reply(200, { entries });
+    const [result] = await pipeline([roomCommand(req.method, room, device, body?.blob, Date.now(), body?.departed === true)]);
+    const [status, fields] = result.result ?? [];
+    if (![200, 409, 413, 429, 503].includes(status)) throw new Error("relay failed");
+    if (status !== 200) {
+      const errors = { 409: "table is full", 413: "table snapshot is too large", 429: "table relay rate limit", 503: "table relay capacity reached" };
+      return reply(status, { error: errors[status] });
     }
-    await pipeline(req.method === "POST" ? writeCommands(room, device, body.blob) : [["HDEL", keyFor(room), device]]);
+    if (req.method === "GET") {
+      if (!Array.isArray(fields)) throw new Error("relay failed");
+      return reply(200, { entries: parseEntries(fields).entries });
+    }
     return reply(200, { ok: true });
   } catch { return reply(502, { error: "table relay unavailable" }); }
 }

@@ -240,7 +240,7 @@ export const useSessionStore = defineStore("session", () => {
     const summary = session.value.people
       .map((p) => {
         const events = eventsFor(p.id);
-        if (!events.length) return null;
+        if (!pourCount(events)) return null;
         // BAC peaks just after a pour, so sampling each pour finds the night's peak
         const peakBAC = Math.max(
           ...events.map((event) =>

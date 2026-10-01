@@ -111,7 +111,7 @@ const who = computed(() => {
           <circle cx="160" cy="160" r="118" fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="2 4" />
           <text font-size="13" fill="var(--ink)" class="print" style="letter-spacing: 0.34em; font-weight: 700">
             <textPath href="#coaster-rim">
-              {{ room.inRoom ? `THE TABLE · ${room.code?.toUpperCase()} · PEER TO PEER · NO SERVER KEEPS IT ·` : "PULL UP A CHAIR · BRING A FRIEND · PEER TO PEER · NO SERVER ·" }}
+              {{ room.inRoom ? `THE TABLE · ${room.code?.toUpperCase()} · ENCRYPTED RELAY ·` : "PULL UP A CHAIR · BRING A FRIEND · ENCRYPTED RELAY ·" }}
             </textPath>
           </text>
         </svg>
@@ -171,6 +171,10 @@ const who = computed(() => {
         </div>
       </div>
     </div>
+
+    <p class="print mt-5 max-w-[320px] text-center text-[9px]" style="letter-spacing: 0.08em; color: var(--amber-soft)">
+      ENCRYPTED TABLE COPIES STORED ON SERVER · EXPIRE AFTER 24H WITHOUT UPDATES
+    </p>
 
     <!-- at a table: the link itself, to send any way you like -->
     <template v-if="room.inRoom">
