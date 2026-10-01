@@ -59,6 +59,24 @@ it.skipIf(!server || !cli)("atomically bounds concurrent writers, storage, rooms
     expect((await write("phone5", "x".repeat(60000)))[0]).toBe(413); // live phones are never evicted
     expect(await run("HEXISTS", `ea:room:${room}`, "phone1")).toBe(1);
     await run("FLUSHDB");
+    // A rejected write must not cost anyone their retained departure.
+    for (let i = 1; i <= 4; i++) expect((await write(`live${i}`, "x".repeat(60000)))[0]).toBe(200);
+    expect((await depart("gone", "x".repeat(10000)))[0]).toBe(200);
+    expect((await write("big", "x".repeat(65000)))[0]).toBe(413);
+    expect(await run("HEXISTS", `ea:room:${room}`, "gone")).toBe(1);
+    await run("FLUSHDB");
+    // Retained departures are capped at the seat count, oldest dropped first.
+    for (let i = 0; i < LIMITS.members + 3; i++) expect((await depart(`gone${i}`, "bye", now + i))[0]).toBe(200);
+    const kept = await run("HKEYS", `ea:room:${room}`);
+    expect(kept).toHaveLength(LIMITS.members);
+    expect(kept).not.toContain("gone0");
+    expect(kept).toContain(`gone${LIMITS.members + 2}`);
+    await run("FLUSHDB");
+    // An emptied table gives its slot back before the 24 h TTL.
+    expect((await write("phone1"))[0]).toBe(200);
+    expect((await run(...roomCommand("GET", room, "", "", now + 700000)))[0]).toBe(200);
+    expect(await run("ZCARD", "ea:rooms")).toBe(0);
+    await run("FLUSHDB");
     for (let i = 0; i < LIMITS.rooms; i++) expect((await write("phone", "small", i.toString(16).padStart(64, "0")))[0]).toBe(200);
     expect((await write("phone", "small", room))[0]).toBe(503);
     expect((await write("phone", "small", room, now + LIMITS.ttl * 1000 + 1))[0]).toBe(200);
@@ -72,4 +90,4 @@ it.skipIf(!server || !cli)("atomically bounds concurrent writers, storage, rooms
     await new Promise((resolve) => process.once("exit", resolve));
     await rm(dir, { recursive: true, force: true });
   }
-}, 15000);
+}, 45000);

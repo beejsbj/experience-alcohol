@@ -100,7 +100,8 @@ const landedAt = computed(() => {
   }
   return latest;
 });
-const peak = computed(() => Math.max(bac.value, peakBAC(events.value, props.person, landedAt.value)));
+const landedPeak = computed(() => peakBAC(events.value, props.person, landedAt.value));
+const peak = computed(() => Math.max(bac.value, landedPeak.value));
 const totals = computed(() => ({
   pours: pours.value,
   std: standardDrinks(events.value).toFixed(1),

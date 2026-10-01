@@ -59,7 +59,9 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
   let pollTimer, failures = 0;
   const unhealthy = { read: false, write: false };
   let warned = false;
+  const writes = new AbortController();
   const health = (direction, failed) => {
+    if (closed) return;
     unhealthy[direction] = failed;
     const next = unhealthy.read || unhealthy.write;
     if (next !== warned) { warned = next; onError?.(next ? "can't reach the table" : null); }
@@ -78,7 +80,7 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
           try {
             const blob = await encryptRecord(key, record);
             if (closed) break;
-            await request("/api/room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ room, device, blob }) });
+            await request("/api/room", { method: "POST", signal: writes.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ room, device, blob }) });
             health("write", false);
           } catch { health("write", true); }
         }
@@ -155,6 +157,7 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
     leave() {
       if (closed) return;
       closed = true;
+      writes.abort(); // a live write still in flight must not land after the departure
       clearTimeout(pollTimer); clearInterval(heartbeat);
       globalThis.document?.removeEventListener("visibilitychange", wake);
       globalThis.window?.removeEventListener("online", poll);
