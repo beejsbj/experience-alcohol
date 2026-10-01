@@ -232,6 +232,8 @@ export const useRoomStore = defineStore("room", () => {
     })();
 
     if (linked) globalThis.history?.replaceState(null, "", globalThis.location.pathname);
+    // Repeated invites (including while connecting) keep the existing transport.
+    if (code.value && (!linked || linked === code.value)) return;
     if (linked && linked !== saved?.code) return joinRoom(linked);
     if (!saved?.code) return;
     code.value = saved.code;

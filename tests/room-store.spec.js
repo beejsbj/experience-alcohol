@@ -131,6 +131,23 @@ describe("room table", () => {
     expect(guest.session.eventsFor(me)).toHaveLength(2);
   });
 
+  it("repeated current-room invites do not replace an active or pending connection", async () => {
+    let finish;
+    const leave = vi.fn();
+    const transport = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+    const phone = makePhone();
+    const pending = phone.room.resume({ hash: "#t=abcde-fghjk", transport });
+    await phone.room.resume({ hash: "#t=abcde-fghjk" });
+    expect(transport).toHaveBeenCalledTimes(1);
+    finish({ send: vi.fn(), leave });
+    await pending;
+    await phone.room.resume({ hash: "#t=abcde-fghjk" });
+    await phone.room.resume({ hash: "" });
+    expect(transport).toHaveBeenCalledTimes(1);
+    phone.room.leaveRoom();
+    expect(leave).toHaveBeenCalledTimes(1);
+  });
+
   it("retry reconnects to the same code while still waiting for the table", async () => {
     const leave = vi.fn();
     const transport = vi.fn(async () => ({ send: vi.fn(), leave }));
