@@ -97,7 +97,7 @@ const updateName = (name) => {
     <!-- the printed ruler, torn off and laid over the paper — nothing shifts -->
     <Transition name="slip">
       <div v-if="rulerOpen" ref="slip" class="ruler-slip absolute right-0 top-full z-[5] mt-1 w-[260px] px-2 pb-1 pt-2">
-        <WeightRuler :model-value="person.weight" :min="40" :max="140" @update:model-value="setWeight" />
+        <WeightRuler :model-value="person.weight" :min="30" :max="250" @update:model-value="setWeight" />
       </div>
     </Transition>
   </div>

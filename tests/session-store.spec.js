@@ -38,6 +38,24 @@ describe("session store", () => {
     expect(persisted.events[0].id).toBeTruthy();
   });
 
+  it("omits water-only guests from the closing summary", () => {
+    const store = useSessionStore();
+    store.logDrink(1, { type: "water", abv: 0, volume: 12 });
+    const drinker = store.addPerson({ name: "sam" });
+    store.logDrink(drinker, { type: "beer", abv: 0.05, volume: 12 });
+    store.logDrink(drinker, { type: "water", abv: 0, volume: 12 });
+    store.closeTab();
+    expect(store.lastTab.summary).toHaveLength(1);
+    expect(store.lastTab.summary[0]).toMatchObject({ name: "sam", drinks: 1 });
+  });
+
+  it("leaves a water-only night with the empty closing summary", () => {
+    const store = useSessionStore();
+    store.logDrink(1, { type: "water", abv: 0, volume: 12 });
+    store.closeTab();
+    expect(store.lastTab.summary).toEqual([]);
+  });
+
   it("pins and clears a vibe", () => {
     const store = useSessionStore();
     store.pinVibe(1, "Pleasantly Relaxed");

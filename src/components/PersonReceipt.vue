@@ -89,12 +89,11 @@ const lines = computed(() =>
 
 const LEDGER_COLS = "34px minmax(0,1fr) 42px 34px 40px";
 
-// The peak only moves when someone pours (BAC peaks just after a pour), so
-// this is keyed to the log, not the clock.
+// Peer clocks may be ahead: keep the peak current as those pours arrive.
 const totals = computed(() => ({
   pours: pours.value,
   std: standardDrinks(events.value).toFixed(1),
-  peak: peakBAC(events.value, props.person, Date.now()).toFixed(3),
+  peak: peakBAC(events.value, props.person, now.value).toFixed(3),
 }));
 
 // ── The table writes on it ────────────────────────────────────────────────

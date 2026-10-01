@@ -35,8 +35,9 @@ installable PWA, add it to your home screen.
   coaster. Cut along the scissor line to close the tab and keep the receipt
   with "paid!" scrawled across it.
 
-BAC is estimated with the Widmark formula. Everything stays in your browser's
-localStorage — no accounts, no server.
+BAC is estimated with the Widmark formula. Solo tabs stay in your browser's
+localStorage. Shared tables send encrypted copies through a server relay; its
+storage expires after 24 hours without updates. No accounts are needed.
 
 ## Development
 
