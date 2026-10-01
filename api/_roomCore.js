@@ -14,16 +14,17 @@ export const LIMITS = { requests: 1200, perClient: 600, rooms: 32, members: 16, 
 // An IPv6 holder controls a whole /64, so bucket by it (and unwrap IPv4-mapped
 // addresses); otherwise one client could mint endless rate keys.
 export const ipBucket = (ip) => {
-  const raw = String(ip || "unknown").trim().toLowerCase();
+  const raw = String(ip || "unknown").trim().toLowerCase().replace(/^\[|\](:\d+)?$/g, "").replace(/%.*$/, "");
   const mapped = raw.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (mapped) return mapped[1];
   if (!raw.includes(":")) return raw;
   const [head, tail = ""] = raw.split("::");
   const groups = head.split(":").filter(Boolean);
-  if (!raw.includes("::")) return groups.slice(0, 4).join(":");
+  const hex = (list) => list.map((g) => (parseInt(g, 16) || 0).toString(16));
+  if (!raw.includes("::")) return hex(groups.slice(0, 4)).join(":");
   const rest = tail.split(":").filter(Boolean);
   const full = [...groups, ...Array(Math.max(0, 8 - groups.length - rest.length)).fill("0"), ...rest];
-  return full.slice(0, 4).join(":");
+  return hex(full.slice(0, 4)).join(":");
 };
 // The key never holds a raw address: a keyed hash (the relay's own secret) tells
 // clients apart, and a reader of Redis cannot brute-force the address space.

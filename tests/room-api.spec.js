@@ -25,6 +25,9 @@ describe("room relay core", () => {
   it("buckets IPv6 by /64 and unwraps IPv4-mapped addresses", () => {
     expect(ipBucket("2001:db8:1:2:aaaa:bbbb:cccc:dddd")).toBe(ipBucket("2001:db8:1:2::1"));
     expect(ipBucket("2001:db8:1:2::1")).not.toBe(ipBucket("2001:db8:1:3::1"));
+    expect(ipBucket("2001:0db8::1")).toBe(ipBucket("2001:db8::1"));
+    expect(ipBucket("[2001:DB8::1]:443")).toBe(ipBucket("2001:db8::1"));
+    expect(ipBucket("fe80::1%en0")).toBe(ipBucket("fe80::2"));
     expect(ipBucket("::ffff:203.0.113.9")).toBe("203.0.113.9");
     expect(clientKey("::ffff:203.0.113.9")).toBe(clientKey("203.0.113.9"));
   });
