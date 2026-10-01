@@ -54,8 +54,10 @@ use a small encrypted relay. Live at https://experience-alcohol.vercel.app.
   receipt each phone holds. Closing the tab sends a last snapshot and leaves.
   Transport is `src/room/relayTransport.js` → `/api/room` → Upstash Redis.
   Records are encrypted with the code (PBKDF2 + AES-GCM); the server sees
-  only a SHA-256 room hash and ciphertext. Redis keys are `ea:room:*`, with
-  a 24 h TTL; phones poll and refresh their own record. Tests swap in an
+  only a slow PBKDF2-derived v3 room identifier and ciphertext. Redis keys
+  stay under `ea:` with a 24 h room TTL; phones poll and refresh their own
+  record. Departures retain encrypted state for polling without counting a
+  seated phone. Atomic relay quotas bound shared-database use. Tests swap in an
   in-memory bus. Local `/api` routes run under `vercel dev`, not `vite`.
 - `src/App.vue` — `BarTop` (oak planks, `RingStains`, lamp, `LampDust`
   canvas, BAC-driven vignette via `--drunk`) behind everything; switches

@@ -4,12 +4,15 @@ const HIDDEN_POLL_MS = 15000;
 const STALE_MS = 30000;
 const MAX_BACKOFF_MS = 15000;
 const encoder = new TextEncoder();
+const pendingDepartures = new Map();
 
 export async function deriveRoom(code) {
-  const hash = await crypto.subtle.digest("SHA-256", encoder.encode(`experience-alcohol/rooms/v2:${code}`));
-  const material = await crypto.subtle.importKey("raw", encoder.encode(code), "PBKDF2", false, ["deriveKey"]);
-  const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: encoder.encode("experience-alcohol/rooms/v2"), iterations: 100000, hash: "SHA-256" }, material, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
-  return { room: [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join(""), key };
+  const material = await crypto.subtle.importKey("raw", encoder.encode(code), "PBKDF2", false, ["deriveBits"]);
+  // Both the public locator and secret key require the slow KDF. The locator
+  // reveals none of the separate key bytes and cannot cheaply verify guesses.
+  const bytes = new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", salt: encoder.encode("experience-alcohol/rooms/v3"), iterations: 100000, hash: "SHA-256" }, material, 512));
+  const key = await crypto.subtle.importKey("raw", bytes.slice(32), "AES-GCM", false, ["encrypt", "decrypt"]);
+  return { room: Array.from(bytes.slice(0, 32), (b) => b.toString(16).padStart(2, "0")).join(""), key };
 }
 
 export async function encryptRecord(key, record) {
@@ -28,14 +31,28 @@ export async function decryptRecord(key, blob) {
 
 export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, onError }) {
   const { room, key } = await deriveRoom(code);
-  const device = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+  let device;
+  // Tab-scoped identity survives reload without merging two open tabs' seats.
+  try { device = globalThis.sessionStorage?.getItem("experience-alcohol:relay-device:v3"); } catch { /* storage may be disabled */ }
+  if (!/^[a-f0-9]{32}$/.test(device ?? "")) {
+    device = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+    try { globalThis.sessionStorage?.setItem("experience-alcohol:relay-device:v3", device); } catch { /* ephemeral seat */ }
+  }
+  const seat = `${room}:${device}`;
+  // A reconnect can start while the previous connection is still publishing
+  // departure. Its first write must follow that final write, never precede it.
+  await pendingDepartures.get(seat);
   const record = { hello: null, state: null };
   const peers = new Map();
+  const departures = new Map();
   let closed = false, dirty = false, writing = null, polling = false;
-  let pollTimer, failures = 0, failed = false;
-  const failure = () => {
-    failures++;
-    if (!failed) { failed = true; onError?.("can't reach the table"); }
+  let pollTimer, failures = 0;
+  const unhealthy = { read: false, write: false };
+  let warned = false;
+  const health = (direction, failed) => {
+    unhealthy[direction] = failed;
+    const next = unhealthy.read || unhealthy.write;
+    if (next !== warned) { warned = next; onError?.(next ? "can't reach the table" : null); }
   };
   const request = async (url, options) => {
     const response = await fetch(url, options);
@@ -52,7 +69,8 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
             const blob = await encryptRecord(key, record);
             if (closed) break;
             await request("/api/room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ room, device, blob }) });
-          } catch { failure(); }
+            health("write", false);
+          } catch { health("write", true); }
         }
       })().finally(() => { writing = null; });
     }
@@ -77,24 +95,32 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
       if (!entries || typeof entries !== "object") throw new Error("invalid entries");
       if (closed) return;
       prune(entries);
+      for (const id of departures.keys()) if (!entries[id]) departures.delete(id);
       for (const [id, entry] of Object.entries(entries)) {
-        if (id === device || !Number.isFinite(entry.t) || Date.now() - entry.t > STALE_MS) continue;
+        if (id === device || !Number.isFinite(entry.t) || Date.now() - entry.t > 600000) continue;
         const previous = peers.get(id);
         if (previous?.t === entry.t && previous?.blob === entry.blob) continue;
         let next;
         try { next = await decryptRecord(key, entry.blob); } catch { continue; }
         if (closed) return;
         if (!next || typeof next !== "object") continue;
+        if (next.departed === true) {
+          // Deliver the final snapshot without counting an absent phone as seated.
+          if (departures.get(id) !== entry.blob && next.state != null) onMessage?.("state", next.state, id);
+          departures.set(id, entry.blob);
+          if (peers.delete(id)) onPeerLeave?.(id);
+          continue;
+        }
+        if (Date.now() - entry.t > STALE_MS) continue;
+        departures.delete(id);
         peers.set(id, { ...entry, record: next });
         if (!previous) onPeerJoin?.(id);
         for (const type of ["hello", "state"]) {
           if (next[type] != null && JSON.stringify(next[type]) !== JSON.stringify(previous?.record[type])) onMessage?.(type, next[type], id);
         }
       }
-      // back in touch — take the warning down
-      if (failed) onError?.(null);
-      failures = 0; failed = false;
-    } catch { if (!closed) failure(); }
+      failures = 0; health("read", false);
+    } catch { if (!closed) { failures++; health("read", true); } }
     finally {
       polling = false;
       if (!closed) {
@@ -117,12 +143,21 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
       return write();
     },
     leave() {
+      if (closed) return;
       closed = true;
       clearTimeout(pollTimer); clearInterval(heartbeat);
       globalThis.document?.removeEventListener("visibilitychange", wake);
       globalThis.window?.removeEventListener("online", poll);
-      // An in-flight write must finish before deleting the seat.
-      Promise.resolve(writing).finally(() => fetch(`/api/room?room=${room}&device=${device}`, { method: "DELETE", keepalive: true }).catch(() => {}));
+      // Retain an encrypted departure and its state through the relay's bounded
+      // retention window. A hidden or temporarily disconnected peer can still poll it.
+      record.departed = true;
+      const departure = Promise.resolve(writing).then(async () => {
+        const blob = await encryptRecord(key, record);
+        await request("/api/room", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ room, device, blob }) });
+      }).catch(() => {}).finally(() => {
+        if (pendingDepartures.get(seat) === departure) pendingDepartures.delete(seat);
+      });
+      pendingDepartures.set(seat, departure);
     },
   };
 }
