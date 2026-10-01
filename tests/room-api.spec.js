@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { validRoom, validDevice, validAt, roomCommand, clientKey, LIMITS, ROOM_SCRIPT, parseEntries } from "../api/_roomCore.js";
+import { validRoom, validDevice, validAt, roomCommand, clientKey, ipBucket, LIMITS, ROOM_SCRIPT, parseEntries } from "../api/_roomCore.js";
 
 describe("room relay core", () => {
   it("only accepts hashed rooms and bounded device ids", () => {
@@ -12,15 +12,21 @@ describe("room relay core", () => {
     const command = roomCommand("POST", "a".repeat(64), "phone", "encrypted", 123);
     expect(command[0]).toBe("EVAL");
     expect(command.slice(2, 7)).toEqual([4, `ea:room:${"a".repeat(64)}`, "ea:rooms", "ea:rate", clientKey("unknown")]);
-    expect(command.slice(7)).toEqual(["POST", "phone", '{"t":123,"blob":"encrypted","at":123}', 123, 86400, 1200, 32, 16, 262144, "0", 240, 123]);
-    expect(roomCommand("POST", "a".repeat(64), "phone", "encrypted", 123, true).slice(9)).toEqual(['{"t":123,"blob":"encrypted","at":123,"d":true}', 123, 86400, 1200, 32, 16, 262144, "1", 240, 123]);
+    expect(command.slice(7)).toEqual(["POST", "phone", '{"t":123,"blob":"encrypted","at":123}', 123, 86400, 1200, 32, 16, 262144, "0", 600, 123]);
+    expect(roomCommand("POST", "a".repeat(64), "phone", "encrypted", 123, true).slice(9)).toEqual(['{"t":123,"blob":"encrypted","at":123,"d":true}', 123, 86400, 1200, 32, 16, 262144, "1", 600, 123]);
     expect(LIMITS.rooms * LIMITS.bytes).toBe(8 * 1024 * 1024);
   });
   it("keys the per-client counter by a short hash, never the raw address", () => {
     expect(clientKey("203.0.113.9")).toMatch(/^ea:rate:ip:[a-f0-9]{16}$/);
     expect(clientKey("203.0.113.9")).not.toContain("203");
     expect(clientKey("203.0.113.9")).not.toBe(clientKey("203.0.113.10"));
-    expect(LIMITS.perClient).toBe(240);
+    expect(LIMITS.perClient).toBe(600);
+  });
+  it("buckets IPv6 by /64 and unwraps IPv4-mapped addresses", () => {
+    expect(ipBucket("2001:db8:1:2:aaaa:bbbb:cccc:dddd")).toBe(ipBucket("2001:db8:1:2::1"));
+    expect(ipBucket("2001:db8:1:2::1")).not.toBe(ipBucket("2001:db8:1:3::1"));
+    expect(ipBucket("::ffff:203.0.113.9")).toBe("203.0.113.9");
+    expect(clientKey("::ffff:203.0.113.9")).toBe(clientKey("203.0.113.9"));
   });
   it("carries the sender's `at` into the envelope and the script", () => {
     const command = roomCommand("POST", "a".repeat(64), "phone", "encrypted", 123, false, "unknown", 99);
@@ -39,9 +45,10 @@ describe("room relay core", () => {
 
 import handler from "../api/room.js";
 
+const AT = Date.now();
 describe("room endpoint", () => {
   afterEach(() => vi.unstubAllGlobals());
-  const request = (method = "POST") => ({ method, body: { room: "a".repeat(64), device: "phone", blob: "ciphertext", at: 1790000000000 }, query: { room: "a".repeat(64) } });
+  const request = (method = "POST") => ({ method, body: { room: "a".repeat(64), device: "phone", blob: "ciphertext", at: AT }, query: { room: "a".repeat(64) } });
   const response = () => ({ setHeader: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() });
   it.each([409, 413, 429, 503])("returns quota status %s instead of hiding it as a relay failure", async (status) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => [{ result: [status] }] }));
@@ -77,7 +84,7 @@ describe("room endpoint", () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json.mock.calls[0][0].entries.phone.blob).toBe("ciphertext");
   });
-  it.each([undefined, 0, -5, 1.5, "7", null])("rejects a missing or malformed `at` (%s) before contacting Redis", async (at) => {
+  it.each([0, -5, 1.5, "7", null, Date.now() + 2 * 3600000])("rejects a malformed or far-future `at` (%s) before contacting Redis", async (at) => {
     vi.stubGlobal("fetch", vi.fn());
     const req = request(); req.body.at = at;
     const res = response();
@@ -85,12 +92,21 @@ describe("room endpoint", () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(fetch).not.toHaveBeenCalled();
   });
+  it("stamps a write from an older tab that sends no `at` with the relay's clock", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => [{ result: [200] }] }));
+    const req = request(); delete req.body.at;
+    const res = response();
+    await handler(req, res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    const command = JSON.parse(fetch.mock.calls[0][1].body)[0];
+    expect(Math.abs(command.at(-1) - Date.now())).toBeLessThan(5000);
+  });
   it("forwards `at` to the script", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => [{ result: [200] }] }));
     await handler(request(), response());
     const command = JSON.parse(fetch.mock.calls[0][1].body)[0];
-    expect(command.at(-1)).toBe(1790000000000);
-    expect(JSON.parse(command[9]).at).toBe(1790000000000);
+    expect(command.at(-1)).toBe(AT);
+    expect(JSON.parse(command[9]).at).toBe(AT);
   });
   it("rejects oversized blobs before contacting Redis", async () => {
     vi.stubGlobal("fetch", vi.fn());

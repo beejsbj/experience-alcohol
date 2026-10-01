@@ -140,6 +140,19 @@ describe("relay lifecycle", () => {
     expect(posts).toHaveLength(3);
     expect(signals[2].aborted).toBe(true);
   }, 15000);
+  it("does not retry a departure the relay refused with a 4xx", async () => {
+    const posts = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url, options) => {
+      if (options?.method === "POST") { posts.push(JSON.parse(options.body)); if (posts.length >= 2) return { ok: false, status: 429 }; }
+      return { ok: true, json: async () => ({ entries: {} }) };
+    }));
+    const connection = await connect();
+    await connection.send("hello", { personId: "me" });
+    connection.leave(); connections.pop();
+    await vi.waitFor(() => expect(posts).toHaveLength(2));
+    await new Promise(resolve => setTimeout(resolve, 300));
+    expect(posts).toHaveLength(2);
+  });
   it("lands the departure after a live write in flight at leave, without a stale error", async () => {
     const storage = new Map();
     vi.stubGlobal("sessionStorage", { getItem: k => storage.get(k), setItem: (k, v) => storage.set(k, v) });

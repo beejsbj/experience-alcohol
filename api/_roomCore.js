@@ -1,18 +1,36 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 export const validRoom = (room) => /^[a-f0-9]{64}$/.test(room ?? "");
 export const validDevice = (device) => /^[a-zA-Z0-9_-]{4,64}$/.test(device ?? "");
 // `at` is the sender's own clock at encrypt time, strictly rising per seat.
 export const validAt = (at) => Number.isSafeInteger(at) && at > 0;
+// A seat's clock may not run far ahead of the relay's: a huge `at` would lock
+// its seat out of every later write.
+export const AT_SKEW_MS = 3600000;
 export const keyFor = (room) => `ea:room:${room}`;
 
-export const LIMITS = { requests: 1200, perClient: 240, rooms: 32, members: 16, bytes: 262144, ttl: 86400 };
+export const LIMITS = { requests: 1200, perClient: 600, rooms: 32, members: 16, bytes: 262144, ttl: 86400 };
 
-// The key never holds a raw address: a short hash is enough to tell clients apart.
-export const clientKey = (ip) => `ea:rate:ip:${createHash("sha256").update(String(ip || "unknown")).digest("hex").slice(0, 16)}`;
+// An IPv6 holder controls a whole /64, so bucket by it (and unwrap IPv4-mapped
+// addresses); otherwise one client could mint endless rate keys.
+export const ipBucket = (ip) => {
+  const raw = String(ip || "unknown").trim().toLowerCase();
+  const mapped = raw.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mapped) return mapped[1];
+  if (!raw.includes(":")) return raw;
+  const [head, tail = ""] = raw.split("::");
+  const groups = head.split(":").filter(Boolean);
+  if (!raw.includes("::")) return groups.slice(0, 4).join(":");
+  const rest = tail.split(":").filter(Boolean);
+  const full = [...groups, ...Array(Math.max(0, 8 - groups.length - rest.length)).fill("0"), ...rest];
+  return full.slice(0, 4).join(":");
+};
+// The key never holds a raw address: a keyed hash (the relay's own secret) tells
+// clients apart, and a reader of Redis cannot brute-force the address space.
+export const clientKey = (ip) => `ea:rate:ip:${createHmac("sha256", process.env.KV_REST_API_TOKEN ?? "ea-rate").update(ipBucket(ip)).digest("hex").slice(0, 16)}`;
 
 // One Redis transaction: concurrent callers cannot race past either quota.
-// Fixed global keys also avoid creating an unbounded collection of rate keys.
+// Per-client keys are bucketed (IPv6 by /64) and expire after a minute.
 export const ROOM_SCRIPT = `
 -- A single client's limit is checked first, so its rejected requests never
 -- spend the global budget that every other table shares.

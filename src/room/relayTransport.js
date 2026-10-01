@@ -76,7 +76,7 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
   };
   const request = async (url, options) => {
     const response = await fetch(url, options);
-    if (!response.ok) throw new Error("relay unavailable");
+    if (!response.ok) throw Object.assign(new Error("relay unavailable"), { status: response.status });
     return response;
   };
   const write = () => {
@@ -193,7 +193,10 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
           try {
             if (controller.signal.aborted) throw new Error("departure cancelled");
             await post(body, controller.signal);
-          } catch { retry(body); }
+          } catch (error) {
+            // A 4xx (full, too large, rate-limited) would only fail the same way again.
+            if (!(error?.status >= 400 && error.status < 500)) retry(body);
+          }
         }).catch(() => {}).finally(() => {
           clearTimeout(timer);
           if (pendingDepartures.get(seat) === entry) pendingDepartures.delete(seat);
