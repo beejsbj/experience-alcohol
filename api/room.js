@@ -1,4 +1,4 @@
-import { validRoom, validDevice, roomCommand, parseEntries } from "./_roomCore.js";
+import { validRoom, validDevice, validAt, roomCommand, parseEntries } from "./_roomCore.js";
 
 // Vercel sets x-real-ip; x-forwarded-for's first entry is the original client.
 const clientIp = (req) => req.headers?.["x-real-ip"] || String(req.headers?.["x-forwarded-for"] ?? "").split(",")[0].trim() || req.socket?.remoteAddress || "unknown";
@@ -15,6 +15,7 @@ export default async function handler(req, res) {
   const device = req.method === "POST" ? body?.device : req.query?.device;
   if (typeof room !== "string" || !validRoom(room)) return reply(400, { error: "invalid room" });
   if (req.method !== "GET" && (typeof device !== "string" || !validDevice(device))) return reply(400, { error: "invalid device" });
+  if (req.method === "POST" && !validAt(body?.at)) return reply(400, { error: "invalid at" });
   if (req.method === "POST" && (typeof body?.blob !== "string" || Buffer.byteLength(body.blob) > 65536)) return reply(413, { error: "invalid blob" });
   const pipeline = async (commands) => {
     const response = await fetch(`${process.env.KV_REST_API_URL}/pipeline`, {
@@ -28,7 +29,7 @@ export default async function handler(req, res) {
     return results;
   };
   try {
-    const [result] = await pipeline([roomCommand(req.method, room, device, body?.blob, Date.now(), body?.departed === true, clientIp(req))]);
+    const [result] = await pipeline([roomCommand(req.method, room, device, body?.blob, Date.now(), body?.departed === true, clientIp(req), body?.at)]);
     const [status, fields] = result.result ?? [];
     if (![200, 409, 413, 429, 503].includes(status)) throw new Error("relay failed");
     if (status !== 200) {

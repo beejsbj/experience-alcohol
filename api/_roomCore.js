@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 
 export const validRoom = (room) => /^[a-f0-9]{64}$/.test(room ?? "");
 export const validDevice = (device) => /^[a-zA-Z0-9_-]{4,64}$/.test(device ?? "");
+// `at` is the sender's own clock at encrypt time, strictly rising per seat.
+export const validAt = (at) => Number.isSafeInteger(at) && at > 0;
 export const keyFor = (room) => `ea:room:${room}`;
 
 export const LIMITS = { requests: 1200, perClient: 240, rooms: 32, members: 16, bytes: 262144, ttl: 86400 };
@@ -51,6 +53,9 @@ local oldSeated = false
 if old then
   local _, previous = pcall(cjson.decode, old)
   oldSeated = type(previous) == 'table' and previous.d ~= true
+  -- A write that was already on the wire when a newer one landed (a reconnect,
+  -- a departure) is dropped: success to the sender, no change to the table.
+  if type(previous) == 'table' and type(previous.at) == 'number' and tonumber(ARGV[12]) < previous.at then return {200} end
 end
 if ARGV[10] ~= '1' and not oldSeated and count >= tonumber(ARGV[8]) then return {409} end
 if old then size = size - string.len(ARGV[2]) - string.len(old) end
@@ -76,9 +81,9 @@ redis.call('EXPIRE', KEYS[2], ARGV[5])
 return {200}
 `;
 
-export function roomCommand(method, room, device = "", blob = "", now = Date.now(), departed = false, ip = "unknown") {
+export function roomCommand(method, room, device = "", blob = "", now = Date.now(), departed = false, ip = "unknown", at = now) {
   return ["EVAL", ROOM_SCRIPT, 4, keyFor(room), "ea:rooms", "ea:rate", clientKey(ip), method, device,
-    JSON.stringify(departed ? { t: now, blob, d: true } : { t: now, blob }), now, LIMITS.ttl, LIMITS.requests, LIMITS.rooms, LIMITS.members, LIMITS.bytes, departed ? "1" : "0", LIMITS.perClient];
+    JSON.stringify(departed ? { t: now, blob, at, d: true } : { t: now, blob, at }), now, LIMITS.ttl, LIMITS.requests, LIMITS.rooms, LIMITS.members, LIMITS.bytes, departed ? "1" : "0", LIMITS.perClient, at];
 }
 
 export function parseEntries(fields, now = Date.now()) {

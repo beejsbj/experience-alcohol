@@ -9,6 +9,14 @@ const DEPARTURE_MS = 3000;
 const KEEPALIVE_BYTES = 60000;
 const encoder = new TextEncoder();
 const pendingDepartures = new Map();
+// Last `at` per seat: the relay drops a write older than one it already holds,
+// so every write from a seat (across reconnects) must stamp strictly later.
+const lastAt = new Map();
+const nextAt = (seat) => {
+  const at = Math.max(Date.now(), (lastAt.get(seat) ?? 0) + 1);
+  lastAt.set(seat, at);
+  return at;
+};
 
 export async function deriveRoom(code) {
   const material = await crypto.subtle.importKey("raw", encoder.encode(code), "PBKDF2", false, ["deriveBits"]);
@@ -80,7 +88,7 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
           try {
             const blob = await encryptRecord(key, record);
             if (closed) break;
-            await request("/api/room", { method: "POST", signal: writes.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ room, device, blob }) });
+            await request("/api/room", { method: "POST", signal: writes.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ room, device, blob, at: nextAt(seat) }) });
             health("write", false);
           } catch { health("write", true); }
         }
@@ -174,7 +182,7 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
         done: Promise.resolve(writing).then(async () => {
           const blob = await encryptRecord(key, record);
           if (controller.signal.aborted) return;
-          const body = JSON.stringify({ room, device, blob, departed: true });
+          const body = JSON.stringify({ room, device, blob, at: nextAt(seat), departed: true });
           await request("/api/room", { method: "POST", keepalive: encoder.encode(body).length <= KEEPALIVE_BYTES, signal: controller.signal, headers: { "Content-Type": "application/json" }, body });
         }).catch(() => {}).finally(() => {
           clearTimeout(timer);

@@ -127,6 +127,28 @@ describe("relay lifecycle", () => {
     await vi.waitFor(() => expect(order).toEqual(["live-settled", "departure"]));
     expect(onError).not.toHaveBeenCalled();
   });
+  it("stamps every write with an `at` that rises across a reconnect, departure included", async () => {
+    const storage = new Map();
+    vi.stubGlobal("sessionStorage", { getItem: k => storage.get(k), setItem: (k, v) => storage.set(k, v) });
+    vi.spyOn(Date, "now").mockReturnValue(5000000); // a frozen clock must still yield rising stamps
+    const posts = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url, options) => {
+      if (options?.method === "POST") posts.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({ entries: {} }) };
+    }));
+    const first = await connect();
+    await first.send("hello", { personId: "me" });
+    await first.send("state", { id: "night" });
+    first.leave(); connections.pop();
+    const second = await connect();
+    await second.send("hello", { personId: "me" });
+    await vi.waitFor(() => expect(posts).toHaveLength(4));
+    const stamps = posts.map(p => p.at);
+    expect(stamps.every(Number.isSafeInteger)).toBe(true);
+    expect(stamps).toEqual([...stamps].sort((a, b) => a - b));
+    expect(new Set(stamps).size).toBe(4);
+    expect(posts[2].departed).toBe(true);
+  });
   it("sends a near-limit departure without keepalive, which browsers cap at 64 KiB", async () => {
     const options = [];
     vi.stubGlobal("fetch", vi.fn(async (_url, init) => {

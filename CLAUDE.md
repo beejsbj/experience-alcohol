@@ -53,6 +53,8 @@ use a small encrypted relay. Live at https://experience-alcohol.vercel.app.
   `experience-alcohol:session:before-room`. `hello` messages say which
   receipt each phone holds. Closing the tab sends a last snapshot and leaves.
   Transport is `src/room/relayTransport.js` → `/api/room` → Upstash Redis.
+  Every write carries a per-seat rising `at`; the relay ignores one older than
+  the seat's stored entry, so a late in-flight POST cannot undo a newer one.
   Records are encrypted with the code (PBKDF2 + AES-GCM); the server sees
   only a slow PBKDF2-derived v3 room identifier and ciphertext. Redis keys
   stay under `ea:` with a 24 h room TTL; phones poll and refresh their own
