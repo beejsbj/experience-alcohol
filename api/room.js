@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     return results;
   };
   try {
-    const [result] = await pipeline([roomCommand(req.method, room, device, body?.blob)]);
+    const [result] = await pipeline([roomCommand(req.method, room, device, body?.blob, Date.now(), body?.departed === true)]);
     const [status, fields] = result.result ?? [];
     if (![200, 409, 413, 429, 503].includes(status)) throw new Error("relay failed");
     if (status !== 200) {

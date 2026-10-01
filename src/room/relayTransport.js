@@ -3,6 +3,10 @@ const POLL_MS = 2500;
 const HIDDEN_POLL_MS = 15000;
 const STALE_MS = 30000;
 const MAX_BACKOFF_MS = 15000;
+// A departure may hold the seat's next connection back for this long, no more.
+const DEPARTURE_MS = 3000;
+// Browsers refuse keepalive bodies over 64 KiB; stay clear of the envelope.
+const KEEPALIVE_BYTES = 60000;
 const encoder = new TextEncoder();
 const pendingDepartures = new Map();
 
@@ -41,7 +45,13 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
   const seat = `${room}:${device}`;
   // A reconnect can start while the previous connection is still publishing
   // departure. Its first write must follow that final write, never precede it.
-  await pendingDepartures.get(seat);
+  const prior = pendingDepartures.get(seat);
+  if (prior) {
+    let timer;
+    await Promise.race([prior.done, new Promise((resolve) => { timer = setTimeout(resolve, DEPARTURE_MS); })]);
+    clearTimeout(timer);
+    prior.abort(); // a stalled departure must not land after this connection's writes
+  }
   const record = { hello: null, state: null };
   const peers = new Map();
   const departures = new Map();
@@ -151,13 +161,21 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
       // Retain an encrypted departure and its state through the relay's bounded
       // retention window. A hidden or temporarily disconnected peer can still poll it.
       record.departed = true;
-      const departure = Promise.resolve(writing).then(async () => {
-        const blob = await encryptRecord(key, record);
-        await request("/api/room", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ room, device, blob }) });
-      }).catch(() => {}).finally(() => {
-        if (pendingDepartures.get(seat) === departure) pendingDepartures.delete(seat);
-      });
-      pendingDepartures.set(seat, departure);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), DEPARTURE_MS);
+      const entry = {
+        abort: () => controller.abort(),
+        done: Promise.resolve(writing).then(async () => {
+          const blob = await encryptRecord(key, record);
+          if (controller.signal.aborted) return;
+          const body = JSON.stringify({ room, device, blob, departed: true });
+          await request("/api/room", { method: "POST", keepalive: encoder.encode(body).length <= KEEPALIVE_BYTES, signal: controller.signal, headers: { "Content-Type": "application/json" }, body });
+        }).catch(() => {}).finally(() => {
+          clearTimeout(timer);
+          if (pendingDepartures.get(seat) === entry) pendingDepartures.delete(seat);
+        }),
+      };
+      pendingDepartures.set(seat, entry);
     },
   };
 }

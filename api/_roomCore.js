@@ -15,13 +15,16 @@ redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', now)
 local method = ARGV[1]
 local fields = redis.call('HGETALL', KEYS[1])
 local count, size = 0, 0
+local departed = {}
 for i = 1, #fields, 2 do
   local ok, entry = pcall(cjson.decode, fields[i + 1])
   if not ok or type(entry) ~= 'table' or type(entry.t) ~= 'number' or type(entry.blob) ~= 'string' or now - entry.t > 600000 then
     redis.call('HDEL', KEYS[1], fields[i])
   else
-    count = count + 1
-    size = size + string.len(fields[i]) + string.len(fields[i + 1])
+    local bytes = string.len(fields[i]) + string.len(fields[i + 1])
+    size = size + bytes
+    -- A retained departure hands state over; it no longer holds a seat.
+    if entry.d == true then table.insert(departed, {fields[i], bytes}) else count = count + 1 end
   end
 end
 if method == 'GET' then return {200, redis.call('HGETALL', KEYS[1])} end
@@ -31,9 +34,23 @@ if method == 'DELETE' then
   return {200}
 end
 local old = redis.call('HGET', KEYS[1], ARGV[2])
-if not old and count >= tonumber(ARGV[8]) then return {409} end
+local oldSeated = false
+if old then
+  local _, previous = pcall(cjson.decode, old)
+  oldSeated = type(previous) == 'table' and previous.d ~= true
+end
+if ARGV[10] ~= '1' and not oldSeated and count >= tonumber(ARGV[8]) then return {409} end
 if old then size = size - string.len(ARGV[2]) - string.len(old) end
-if size + string.len(ARGV[2]) + string.len(ARGV[3]) > tonumber(ARGV[9]) then return {413} end
+local needed = string.len(ARGV[2]) + string.len(ARGV[3])
+-- Departures are the first thing to give way when the table runs out of room.
+for _, gone in ipairs(departed) do
+  if size + needed <= tonumber(ARGV[9]) then break end
+  if gone[1] ~= ARGV[2] then
+    redis.call('HDEL', KEYS[1], gone[1])
+    size = size - gone[2]
+  end
+end
+if size + needed > tonumber(ARGV[9]) then return {413} end
 if not redis.call('ZSCORE', KEYS[2], KEYS[1]) and redis.call('ZCARD', KEYS[2]) >= tonumber(ARGV[7]) then return {503} end
 redis.call('HSET', KEYS[1], ARGV[2], ARGV[3])
 redis.call('EXPIRE', KEYS[1], ARGV[5])
@@ -42,9 +59,9 @@ redis.call('EXPIRE', KEYS[2], ARGV[5])
 return {200}
 `;
 
-export function roomCommand(method, room, device = "", blob = "", now = Date.now()) {
+export function roomCommand(method, room, device = "", blob = "", now = Date.now(), departed = false) {
   return ["EVAL", ROOM_SCRIPT, 3, keyFor(room), "ea:rooms", "ea:rate", method, device,
-    JSON.stringify({ t: now, blob }), now, LIMITS.ttl, LIMITS.requests, LIMITS.rooms, LIMITS.members, LIMITS.bytes];
+    JSON.stringify(departed ? { t: now, blob, d: true } : { t: now, blob }), now, LIMITS.ttl, LIMITS.requests, LIMITS.rooms, LIMITS.members, LIMITS.bytes, departed ? "1" : "0"];
 }
 
 export function parseEntries(fields, now = Date.now()) {

@@ -35,6 +35,30 @@ it.skipIf(!server || !cli)("atomically bounds concurrent writers, storage, rooms
     expect((await write("phone3", "x".repeat(3000)))[0]).toBe(413);
     expect((await write("phone1", "smaller"))[0]).toBe(200); // replacement subtracts old bytes
     await run("FLUSHDB");
+    // Retained departures hand state over but never hold a seat.
+    const depart = (device, blob = "bye", time = now) => run(...roomCommand("POST", room, device, blob, time, true));
+    for (let i = 0; i < LIMITS.members; i++) expect((await write(`seat${i}`))[0]).toBe(200);
+    expect((await write("newcomer"))[0]).toBe(409);
+    expect((await depart("seat0"))[0]).toBe(200);
+    expect((await write("newcomer"))[0]).toBe(200); // the departed seat is free
+    expect((await write("seat0"))[0]).toBe(409); // coming back needs a seat again
+    expect((await depart("seat1"))[0]).toBe(200);
+    expect((await write("seat0"))[0]).toBe(200);
+    expect((await depart("seat9"))[0]).toBe(200); // a seated phone may always leave
+    expect(await run("HEXISTS", `ea:room:${room}`, "seat9")).toBe(1);
+    await run("FLUSHDB");
+    // Departures give way first when the byte budget runs out.
+    expect((await write("phone1", "x".repeat(60000)))[0]).toBe(200);
+    expect((await depart("gone1", "x".repeat(60000)))[0]).toBe(200);
+    expect((await depart("gone2", "x".repeat(60000)))[0]).toBe(200);
+    expect((await depart("gone3", "x".repeat(60000)))[0]).toBe(200);
+    expect((await write("phone2", "x".repeat(60000)))[0]).toBe(200);
+    expect((await write("phone3", "x".repeat(60000)))[0]).toBe(200);
+    expect(await run("HEXISTS", `ea:room:${room}`, "phone1")).toBe(1);
+    expect((await write("phone4", "x".repeat(60000)))[0]).toBe(200);
+    expect((await write("phone5", "x".repeat(60000)))[0]).toBe(413); // live phones are never evicted
+    expect(await run("HEXISTS", `ea:room:${room}`, "phone1")).toBe(1);
+    await run("FLUSHDB");
     for (let i = 0; i < LIMITS.rooms; i++) expect((await write("phone", "small", i.toString(16).padStart(64, "0")))[0]).toBe(200);
     expect((await write("phone", "small", room))[0]).toBe(503);
     expect((await write("phone", "small", room, now + LIMITS.ttl * 1000 + 1))[0]).toBe(200);

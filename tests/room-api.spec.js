@@ -12,7 +12,8 @@ describe("room relay core", () => {
     const command = roomCommand("POST", "a".repeat(64), "phone", "encrypted", 123);
     expect(command[0]).toBe("EVAL");
     expect(command.slice(2, 6)).toEqual([3, `ea:room:${"a".repeat(64)}`, "ea:rooms", "ea:rate"]);
-    expect(command.slice(6)).toEqual(["POST", "phone", '{"t":123,"blob":"encrypted"}', 123, 86400, 1200, 32, 16, 262144]);
+    expect(command.slice(6)).toEqual(["POST", "phone", '{"t":123,"blob":"encrypted"}', 123, 86400, 1200, 32, 16, 262144, "0"]);
+    expect(roomCommand("POST", "a".repeat(64), "phone", "encrypted", 123, true).slice(8)).toEqual(['{"t":123,"blob":"encrypted","d":true}', 123, 86400, 1200, 32, 16, 262144, "1"]);
     expect(LIMITS.rooms * LIMITS.bytes).toBe(8 * 1024 * 1024);
   });
   it("keeps fresh records and prunes old or corrupt records", () => {
@@ -32,6 +33,14 @@ describe("room endpoint", () => {
     await handler(request(), res);
     expect(res.status).toHaveBeenCalledWith(status);
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toHaveLength(1);
+  });
+  it("forwards a departure flag so retained state does not hold a seat", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => [{ result: [200] }] }));
+    const req = request(); req.body.departed = true;
+    await handler(req, response());
+    const command = JSON.parse(fetch.mock.calls[0][1].body)[0];
+    expect(command.at(-1)).toBe("1");
+    expect(JSON.parse(command[8])).toMatchObject({ blob: "ciphertext", d: true });
   });
   it("returns entries from the atomic read", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => [{ result: [200, ["phone", JSON.stringify({ t: Date.now(), blob: "ciphertext" })]] }] }));

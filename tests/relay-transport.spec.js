@@ -51,6 +51,8 @@ describe("relay lifecycle", () => {
     first.leave(); connections.pop();
     await vi.waitFor(() => expect(posts).toHaveLength(2));
     const { key } = await deriveRoom("abcde-fghjk");
+    expect(posts[1].departed).toBe(true);
+    expect(posts[0].departed).toBeUndefined();
     expect(await decryptRecord(key, posts[1].blob)).toEqual({ hello: null, state: { id: "night", events: [{ id: "last-pour" }] }, departed: true });
     const second = await connect();
     await second.send("hello", { personId: "me" });
@@ -81,6 +83,42 @@ describe("relay lifecycle", () => {
     expect((await decryptRecord(key, posts[1].blob)).departed).toBe(true);
     expect((await decryptRecord(key, posts[2].blob)).departed).toBeUndefined();
     expect(posts[2].device).toBe(posts[1].device);
+  });
+  it("does not let a stalled departure block the next connection", async () => {
+    const storage = new Map();
+    vi.stubGlobal("sessionStorage", { getItem: k => storage.get(k), setItem: (k, v) => storage.set(k, v) });
+    const posts = [];
+    vi.stubGlobal("fetch", vi.fn((_url, options) => {
+      if (options?.method === "POST") {
+        posts.push(JSON.parse(options.body));
+        if (posts.length === 2) return new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => reject(new Error("aborted"))));
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ entries: {} }) });
+    }));
+    const first = await connect();
+    await first.send("hello", { personId: "me" });
+    first.leave(); connections.pop();
+    const second = await connect();
+    await second.send("hello", { personId: "me" });
+    expect(posts).toHaveLength(3);
+    expect(posts[2].departed).toBeUndefined();
+  }, 10000);
+  it("sends a near-limit departure without keepalive, which browsers cap at 64 KiB", async () => {
+    const options = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
+      if (init?.method === "POST") options.push(init);
+      return { ok: true, json: async () => ({ entries: {} }) };
+    }));
+    const big = await connect();
+    await big.send("state", { id: "night", filler: Array.from(crypto.getRandomValues(new Uint8Array(40000)), b => b.toString(16)).join("") });
+    big.leave(); connections.pop();
+    await vi.waitFor(() => expect(options).toHaveLength(2));
+    expect(options[1].keepalive).toBe(false);
+    const small = await connect();
+    await small.send("state", { id: "night" });
+    small.leave(); connections.pop();
+    await vi.waitFor(() => expect(options).toHaveLength(4));
+    expect(options[3].keepalive).toBe(true);
   });
   it("merges a retained departure without announcing a phantom peer", async () => {
     const { key } = await deriveRoom("abcde-fghjk");
