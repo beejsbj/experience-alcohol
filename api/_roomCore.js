@@ -1,12 +1,22 @@
+import { createHash } from "node:crypto";
+
 export const validRoom = (room) => /^[a-f0-9]{64}$/.test(room ?? "");
 export const validDevice = (device) => /^[a-zA-Z0-9_-]{4,64}$/.test(device ?? "");
 export const keyFor = (room) => `ea:room:${room}`;
 
-export const LIMITS = { requests: 1200, rooms: 32, members: 16, bytes: 262144, ttl: 86400 };
+export const LIMITS = { requests: 1200, perClient: 240, rooms: 32, members: 16, bytes: 262144, ttl: 86400 };
+
+// The key never holds a raw address: a short hash is enough to tell clients apart.
+export const clientKey = (ip) => `ea:rate:ip:${createHash("sha256").update(String(ip || "unknown")).digest("hex").slice(0, 16)}`;
 
 // One Redis transaction: concurrent callers cannot race past either quota.
 // Fixed global keys also avoid creating an unbounded collection of rate keys.
 export const ROOM_SCRIPT = `
+-- A single client's limit is checked first, so its rejected requests never
+-- spend the global budget that every other table shares.
+local client = redis.call('INCR', KEYS[4])
+if client == 1 then redis.call('EXPIRE', KEYS[4], 60) end
+if client > tonumber(ARGV[11]) then return {429} end
 local requests = redis.call('INCR', KEYS[3])
 if requests == 1 then redis.call('EXPIRE', KEYS[3], 60) end
 if requests > tonumber(ARGV[6]) then return {429} end
@@ -66,9 +76,9 @@ redis.call('EXPIRE', KEYS[2], ARGV[5])
 return {200}
 `;
 
-export function roomCommand(method, room, device = "", blob = "", now = Date.now(), departed = false) {
-  return ["EVAL", ROOM_SCRIPT, 3, keyFor(room), "ea:rooms", "ea:rate", method, device,
-    JSON.stringify(departed ? { t: now, blob, d: true } : { t: now, blob }), now, LIMITS.ttl, LIMITS.requests, LIMITS.rooms, LIMITS.members, LIMITS.bytes, departed ? "1" : "0"];
+export function roomCommand(method, room, device = "", blob = "", now = Date.now(), departed = false, ip = "unknown") {
+  return ["EVAL", ROOM_SCRIPT, 4, keyFor(room), "ea:rooms", "ea:rate", clientKey(ip), method, device,
+    JSON.stringify(departed ? { t: now, blob, d: true } : { t: now, blob }), now, LIMITS.ttl, LIMITS.requests, LIMITS.rooms, LIMITS.members, LIMITS.bytes, departed ? "1" : "0", LIMITS.perClient];
 }
 
 export function parseEntries(fields, now = Date.now()) {

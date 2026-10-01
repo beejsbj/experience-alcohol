@@ -57,7 +57,9 @@ use a small encrypted relay. Live at https://experience-alcohol.vercel.app.
   only a slow PBKDF2-derived v3 room identifier and ciphertext. Redis keys
   stay under `ea:` with a 24 h room TTL; phones poll and refresh their own
   record. Departures retain encrypted state for polling without counting a
-  seated phone. Atomic relay quotas bound shared-database use. Tests swap in an
+  seated phone. Atomic relay quotas bound shared-database use: a per-client
+  limit (240/min, keyed `ea:rate:ip:<short SHA-256 of the IP>`, checked first so
+  one abuser cannot spend the global 1200/min budget) plus the global one. Tests swap in an
   in-memory bus. Local `/api` routes run under `vercel dev`, not `vite`.
 - `src/App.vue` — `BarTop` (oak planks, `RingStains`, lamp, `LampDust`
   canvas, BAC-driven vignette via `--drunk`) behind everything; switches

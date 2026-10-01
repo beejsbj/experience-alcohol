@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { roomCommand, LIMITS } from "../api/_roomCore.js";
+import { roomCommand, clientKey, LIMITS } from "../api/_roomCore.js";
 
 // Opt-in integration test: isolated local Redis, no credentials or shared DB.
 const server = process.env.REDIS_TEST_SERVER;
@@ -80,6 +80,14 @@ it.skipIf(!server || !cli)("atomically bounds concurrent writers, storage, rooms
     for (let i = 0; i < LIMITS.rooms; i++) expect((await write("phone", "small", i.toString(16).padStart(64, "0")))[0]).toBe(200);
     expect((await write("phone", "small", room))[0]).toBe(503);
     expect((await write("phone", "small", room, now + LIMITS.ttl * 1000 + 1))[0]).toBe(200);
+    await run("FLUSHDB");
+    // One client hitting its own limit is refused without spending the global budget.
+    const abuser = clientKey("198.51.100.7");
+    await run("SET", abuser, LIMITS.perClient, "EX", 60);
+    expect((await run(...roomCommand("POST", room, "phone", "small", now, false, "198.51.100.7")))[0]).toBe(429);
+    expect(await run("EXISTS", "ea:rate")).toBe(0);
+    expect((await write("phone"))[0]).toBe(200); // another client is unaffected
+    expect(await run("TTL", clientKey("unknown"))).toBeGreaterThan(0);
     await run("FLUSHDB");
     await run("SET", "ea:rate", LIMITS.requests, "EX", 60);
     expect((await write("phone"))[0]).toBe(429);

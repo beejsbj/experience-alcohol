@@ -1,5 +1,8 @@
 import { validRoom, validDevice, roomCommand, parseEntries } from "./_roomCore.js";
 
+// Vercel sets x-real-ip; x-forwarded-for's first entry is the original client.
+const clientIp = (req) => req.headers?.["x-real-ip"] || String(req.headers?.["x-forwarded-for"] ?? "").split(",")[0].trim() || req.socket?.remoteAddress || "unknown";
+
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   const reply = (status, body) => res.status(status).json(body);
@@ -25,7 +28,7 @@ export default async function handler(req, res) {
     return results;
   };
   try {
-    const [result] = await pipeline([roomCommand(req.method, room, device, body?.blob, Date.now(), body?.departed === true)]);
+    const [result] = await pipeline([roomCommand(req.method, room, device, body?.blob, Date.now(), body?.departed === true, clientIp(req))]);
     const [status, fields] = result.result ?? [];
     if (![200, 409, 413, 429, 503].includes(status)) throw new Error("relay failed");
     if (status !== 200) {
