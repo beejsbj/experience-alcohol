@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { roomCommand, LIMITS } from "../api/_roomCore.js";
+import { roomCommand, clientKey, LIMITS } from "../api/_roomCore.js";
 
 // Opt-in integration test: isolated local Redis, no credentials or shared DB.
 const server = process.env.REDIS_TEST_SERVER;
@@ -80,6 +80,25 @@ it.skipIf(!server || !cli)("atomically bounds concurrent writers, storage, rooms
     for (let i = 0; i < LIMITS.rooms; i++) expect((await write("phone", "small", i.toString(16).padStart(64, "0")))[0]).toBe(200);
     expect((await write("phone", "small", room))[0]).toBe(503);
     expect((await write("phone", "small", room, now + LIMITS.ttl * 1000 + 1))[0]).toBe(200);
+    await run("FLUSHDB");
+    // A write that was on the wire before a newer one landed changes nothing.
+    const at = (device, blob, stamp, departed = false) => run(...roomCommand("POST", room, device, blob, now, departed, "unknown", stamp));
+    expect((await at("phone", "newer", 2000))[0]).toBe(200);
+    expect((await at("phone", "older", 1000))[0]).toBe(200);
+    expect(JSON.parse(await run("HGET", `ea:room:${room}`, "phone")).blob).toBe("newer");
+    expect((await at("phone", "bye", 3000, true))[0]).toBe(200);
+    expect((await at("phone", "late-live", 2500))[0]).toBe(200);
+    expect(JSON.parse(await run("HGET", `ea:room:${room}`, "phone"))).toMatchObject({ blob: "bye", d: true });
+    expect((await at("phone", "same", 3000))[0]).toBe(200); // equal `at` is not stale
+    expect(JSON.parse(await run("HGET", `ea:room:${room}`, "phone")).blob).toBe("same");
+    await run("FLUSHDB");
+    // One client hitting its own limit is refused without spending the global budget.
+    const abuser = clientKey("198.51.100.7");
+    await run("SET", abuser, LIMITS.perClient, "EX", 60);
+    expect((await run(...roomCommand("POST", room, "phone", "small", now, false, "198.51.100.7")))[0]).toBe(429);
+    expect(await run("EXISTS", "ea:rate")).toBe(0);
+    expect((await write("phone"))[0]).toBe(200); // another client is unaffected
+    expect(await run("TTL", clientKey("unknown"))).toBeGreaterThan(0);
     await run("FLUSHDB");
     await run("SET", "ea:rate", LIMITS.requests, "EX", 60);
     expect((await write("phone"))[0]).toBe(429);

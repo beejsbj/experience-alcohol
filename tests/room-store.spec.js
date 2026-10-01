@@ -212,4 +212,15 @@ describe("room table", () => {
     host.room.leaveRoom();
     expect(host.room.error).toBeNull();
   });
+
+  it("ignores a late warning from a connection that was already left", async () => {
+    const host = makePhone();
+    let report;
+    const transport = ({ onError }) => { report = onError; return Promise.resolve({ send: () => Promise.resolve(), leave: () => {} }); };
+    await host.room.resume({ hash: "", transport });
+    await host.room.startRoom();
+    host.room.leaveRoom();
+    report("can't reach the table"); // an old write failing after disconnect
+    expect(host.room.error).toBeNull();
+  });
 });

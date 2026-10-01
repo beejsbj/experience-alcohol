@@ -146,6 +146,8 @@ export const useRoomStore = defineStore("room", () => {
         }
       },
       onError: (message) => {
+        // A write from a connection already left must not warn about this one.
+        if (generation !== connectionGeneration) return;
         error.value = message ? String(message) : null;
       },
     });
