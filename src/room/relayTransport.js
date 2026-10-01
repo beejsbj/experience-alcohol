@@ -171,9 +171,17 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
       // Retain an encrypted departure and its state through the relay's bounded
       // retention window. A hidden or temporarily disconnected peer can still poll it.
       record.departed = true;
-      // A live write already in flight finishes before the departure goes out,
-      // so the departure always lands last. Only a stall past the deadline (or a
-      // reconnect that gave up waiting) cancels the write and the departure.
+      // A live write already in flight finishes before the departure goes out.
+      // Only a stall past the deadline (or a reconnect that gave up waiting)
+      // cancels it; the departure is then tried once more in the background.
+      const post = (body, signal) => request("/api/room", { method: "POST", keepalive: encoder.encode(body).length <= KEEPALIVE_BYTES, signal, headers: { "Content-Type": "application/json" }, body });
+      // The retry can land late, even after a reconnect's writes: its `at` is
+      // older than theirs, so the relay ignores it rather than regress the seat.
+      const retry = (body) => {
+        const again = new AbortController();
+        const retryTimer = setTimeout(() => again.abort(), DEPARTURE_MS);
+        post(body, again.signal).catch(() => {}).finally(() => clearTimeout(retryTimer));
+      };
       const controller = new AbortController();
       const cancel = () => { controller.abort(); writes.abort(); };
       const timer = setTimeout(cancel, DEPARTURE_MS);
@@ -181,9 +189,11 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
         abort: cancel,
         done: Promise.resolve(writing).then(async () => {
           const blob = await encryptRecord(key, record);
-          if (controller.signal.aborted) return;
           const body = JSON.stringify({ room, device, blob, at: nextAt(seat), departed: true });
-          await request("/api/room", { method: "POST", keepalive: encoder.encode(body).length <= KEEPALIVE_BYTES, signal: controller.signal, headers: { "Content-Type": "application/json" }, body });
+          try {
+            if (controller.signal.aborted) throw new Error("departure cancelled");
+            await post(body, controller.signal);
+          } catch { retry(body); }
         }).catch(() => {}).finally(() => {
           clearTimeout(timer);
           if (pendingDepartures.get(seat) === entry) pendingDepartures.delete(seat);

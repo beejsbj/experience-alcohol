@@ -100,9 +100,46 @@ describe("relay lifecycle", () => {
     first.leave(); connections.pop();
     const second = await connect();
     await second.send("hello", { personId: "me" });
-    expect(posts).toHaveLength(3);
-    expect(posts[2].departed).toBeUndefined();
+    // live, stalled departure, its retry, then the new connection's own write
+    expect(posts).toHaveLength(4);
+    expect(posts[2]).toEqual(posts[1]);
+    expect(posts[3].departed).toBeUndefined();
+    expect(posts[3].at).toBeGreaterThan(posts[2].at);
   }, 10000);
+  it("retries a failed departure once, with the same body and stamp", async () => {
+    const posts = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url, options) => {
+      if (options?.method === "POST") {
+        posts.push(JSON.parse(options.body));
+        if (posts.length === 2) return { ok: false };
+      }
+      return { ok: true, json: async () => ({ entries: {} }) };
+    }));
+    const connection = await connect();
+    await connection.send("hello", { personId: "me" });
+    connection.leave(); connections.pop();
+    await vi.waitFor(() => expect(posts).toHaveLength(3));
+    expect(posts[1].departed).toBe(true);
+    expect(posts[2]).toEqual(posts[1]);
+  });
+  it("retries a departure that stalls past its deadline, and gives up after one retry", async () => {
+    const posts = [], signals = [];
+    vi.stubGlobal("fetch", vi.fn((_url, options) => {
+      if (options?.method === "POST") {
+        posts.push(JSON.parse(options.body));
+        signals.push(options.signal);
+        if (posts.length >= 2) return new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => reject(new Error("aborted"))));
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ entries: {} }) });
+    }));
+    const connection = await connect();
+    await connection.send("hello", { personId: "me" });
+    connection.leave(); connections.pop();
+    await vi.waitFor(() => expect(posts).toHaveLength(3), { timeout: 5000 }); // retry starts after the 3 s abort
+    await new Promise(resolve => setTimeout(resolve, 3300)); // the retry stalls too: its own 3 s timeout ends it
+    expect(posts).toHaveLength(3);
+    expect(signals[2].aborted).toBe(true);
+  }, 15000);
   it("lands the departure after a live write in flight at leave, without a stale error", async () => {
     const storage = new Map();
     vi.stubGlobal("sessionStorage", { getItem: k => storage.get(k), setItem: (k, v) => storage.set(k, v) });
