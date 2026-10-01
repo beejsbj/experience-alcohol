@@ -200,4 +200,16 @@ describe("room table", () => {
     expect(reloaded.awaitingTable).toBe(false);
     expect(useSessionStore().session.id).toBe(sessionId);
   });
+
+  it("leaving the table clears a relay warning", async () => {
+    const host = makePhone();
+    let report;
+    const transport = ({ onError }) => { report = onError; return Promise.resolve({ send: () => Promise.resolve(), leave: () => {} }); };
+    await host.room.resume({ hash: "", transport });
+    await host.room.startRoom();
+    report("can't reach the table");
+    expect(host.room.error).toBe("can't reach the table");
+    host.room.leaveRoom();
+    expect(host.room.error).toBeNull();
+  });
 });

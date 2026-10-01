@@ -157,17 +157,20 @@ export async function connectRelay({ code, onPeerJoin, onPeerLeave, onMessage, o
     leave() {
       if (closed) return;
       closed = true;
-      writes.abort(); // a live write still in flight must not land after the departure
       clearTimeout(pollTimer); clearInterval(heartbeat);
       globalThis.document?.removeEventListener("visibilitychange", wake);
       globalThis.window?.removeEventListener("online", poll);
       // Retain an encrypted departure and its state through the relay's bounded
       // retention window. A hidden or temporarily disconnected peer can still poll it.
       record.departed = true;
+      // A live write already in flight finishes before the departure goes out,
+      // so the departure always lands last. Only a stall past the deadline (or a
+      // reconnect that gave up waiting) cancels the write and the departure.
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), DEPARTURE_MS);
+      const cancel = () => { controller.abort(); writes.abort(); };
+      const timer = setTimeout(cancel, DEPARTURE_MS);
       const entry = {
-        abort: () => controller.abort(),
+        abort: cancel,
         done: Promise.resolve(writing).then(async () => {
           const blob = await encryptRecord(key, record);
           if (controller.signal.aborted) return;

@@ -172,6 +172,7 @@ export const useRoomStore = defineStore("room", () => {
     lastSent = null;
     peers.value = {};
     status.value = "solo";
+    error.value = null;
   }
 
   // Open this phone's current night to the table.

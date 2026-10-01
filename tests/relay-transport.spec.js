@@ -103,6 +103,30 @@ describe("relay lifecycle", () => {
     expect(posts).toHaveLength(3);
     expect(posts[2].departed).toBeUndefined();
   }, 10000);
+  it("lands the departure after a live write in flight at leave, without a stale error", async () => {
+    const storage = new Map();
+    vi.stubGlobal("sessionStorage", { getItem: k => storage.get(k), setItem: (k, v) => storage.set(k, v) });
+    const order = [];
+    let failLiveWrite;
+    vi.stubGlobal("fetch", vi.fn((_url, options) => {
+      if (options?.method !== "POST") return Promise.resolve({ ok: true, json: async () => ({ entries: {} }) });
+      const body = JSON.parse(options.body);
+      if (!body.departed) return new Promise((resolve) => { failLiveWrite = () => { order.push("live-settled"); resolve({ ok: false }); }; });
+      order.push("departure");
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    }));
+    const onError = vi.fn();
+    const connection = await connect({ onError });
+    const sending = connection.send("state", { id: "night" });
+    await vi.waitFor(() => expect(failLiveWrite).toBeTypeOf("function"));
+    connection.leave(); connections.pop();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(order).toEqual([]); // the departure waits for the write already on the wire
+    failLiveWrite();
+    await sending;
+    await vi.waitFor(() => expect(order).toEqual(["live-settled", "departure"]));
+    expect(onError).not.toHaveBeenCalled();
+  });
   it("sends a near-limit departure without keepalive, which browsers cap at 64 KiB", async () => {
     const options = [];
     vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
