@@ -40,6 +40,7 @@ const chart = computed(() => {
     pts.map((p, i) => `${i ? "L" : "M"}${x(p.time).toFixed(1)} ${y(p.bac).toFixed(1)}`).join(" ");
 
   const base = H - PAD.bottom;
+  const limitY = y(0.08);
   const others = [];
   let mine = null;
   for (const s of series) {
@@ -103,15 +104,25 @@ const chart = computed(() => {
     const last = events.at(-1);
     const sinceLast = last ? (now.value - last.t) / 60000 : Infinity;
     const level = mine.series.past.at(-1).bac;
-    let noteY = cy < PAD.top + 26 ? cy + 26 : cy - 16;
-    // The note runs to the right edge, where "hold" sits: when the held band
-    // is at this level, write the note on the other side of the trace.
-    if (band && Math.abs(noteY - band.labelY) < 14) noteY = noteY < cy ? cy + 26 : cy - 16;
-    note = {
-      x: Math.min(cx + 12, W - PAD.right - 36),
-      y: noteY,
-      text: sinceLast < 15 ? "you — fresh one" : level > 0.001 ? "you, easing off" : "you",
-    };
+    const text = sinceLast < 15 ? "you — fresh one" : level > 0.001 ? "you, easing off" : "you";
+
+    // The pen notes keep out of each other's way: the note tries above-right
+    // of now first (below when now is near the top), then the other side of
+    // the trace, and never sits on the "hold" label, the ".08" label or a
+    // friend's initial. Text boxes are rough — Nanum Pen at 15px is ~6.4px
+    // a character — which is plenty for a scrawl.
+    const box = (x, y, w, h = 12) => ({ x0: x, x1: x + w, y0: y - h, y1: y + 3 });
+    const hit = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+    const taken = [box(1, limitY - 3, 15, 8), ...others.map((o) => box(o.now.x + 3, o.now.y - 2, 6, 8))];
+    // a little room round "hold": pen next to pen wants air, not a near miss
+    if (band) taken.push(box(band.labelX - 4, band.labelY + 4, 34, 20));
+    const wText = text.length * 6.4;
+    const xr = Math.min(cx + 12, W - PAD.right - 36);
+    const xl = Math.max(PAD.left, cx - 14 - wText);
+    const ys = cy < PAD.top + 26 ? [cy + 26, cy - 16] : [cy - 16, cy + 26];
+    const spots = [[xr, ys[0]], [xl, ys[0]], [xr, ys[1]], [xl, ys[1]], [xr, ys[0] + (ys[0] > cy ? 14 : -14)], [xl, ys[0] + (ys[0] > cy ? 14 : -14)]];
+    const [nx, ny] = spots.find(([x, yy]) => !taken.some((t) => hit(box(x, yy, wText), t))) ?? spots[0];
+    note = { x: nx, y: ny, text };
   }
 
   return {
@@ -122,7 +133,7 @@ const chart = computed(() => {
     loop,
     note,
     base,
-    limitY: y(0.08),
+    limitY,
     width: W - PAD.right,
   };
 });

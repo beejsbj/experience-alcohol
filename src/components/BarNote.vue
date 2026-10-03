@@ -16,18 +16,32 @@ const props = defineProps({
   delay: { type: Number, default: 0 },
 });
 
+// Permanent Marker's straight apostrophe is a tall tick that reads as an I
+// in an all-caps face ("LAMPIS"); the curly one is a real apostrophe. Quotes
+// likewise. Punctuation also stays upright — a tilted ' is what made it read
+// as a letter in the first place.
+const typeset = (text) =>
+  text
+    .replace(/(^|[\s(])"/g, "$1“")
+    .replaceAll('"', "”")
+    .replace(/(^|[\s(])'/g, "$1‘")
+    .replaceAll("'", "’");
+const PUNCT = /[‘’“”.,;:!?…()\-]/;
+
 const words = computed(() => {
   const rand = scatterRand(`marker:${props.seed}:${props.text}`);
   let i = 0;
-  return props.text.split(" ").map((word) => ({
+  return typeset(props.text).split(" ").map((word) => ({
     word,
     chars: [...word].map((char) => {
       const n = i;
       i += 1;
+      const tilt = PUNCT.test(char) ? 0 : (rand() * 2 - 1) * 4;
+      const dy = PUNCT.test(char) ? 0 : (rand() * 2 - 1) * 1.2;
       return {
         char,
         style: {
-          transform: `rotate(${((rand() * 2 - 1) * 4).toFixed(1)}deg) translateY(${((rand() * 2 - 1) * 1.2).toFixed(1)}px)`,
+          transform: `rotate(${tilt.toFixed(1)}deg) translateY(${dy.toFixed(1)}px)`,
           animationDelay: `${props.delay + Math.min(n * props.pace, 1400)}ms`,
         },
       };
