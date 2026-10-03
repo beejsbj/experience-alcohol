@@ -4,6 +4,7 @@ import { useSessionStore } from "../stores/session";
 import { triggerHaptic } from "../utils/haptics";
 import { clock, tabNumbers } from "../utils/receipt";
 import { barLine } from "../utils/barkeep";
+import { feelingWord } from "../utils/feelings";
 import ReceiptPaper from "./ReceiptPaper.vue";
 import Barcode from "./Barcode.vue";
 import BarNote from "./BarNote.vue";
@@ -79,7 +80,7 @@ const fresh = () => {
               <span>PEAK EST.</span>
               <span>{{ entry.peakBAC.toFixed(3) }}%</span>
             </div>
-            <p class="pen mt-0.5 text-[20px]" :style="{ color: entry.color || '#2b3a8f' }">peaked {{ entry.peakState.toLowerCase() }}</p>
+            <p class="pen mt-0.5 text-[20px]" :style="{ color: entry.color || '#2b3a8f' }">peaked {{ feelingWord(entry.peakState) }}</p>
           </div>
 
           <div class="rule mt-4" :style="line(7 + tab.summary.length)"></div>

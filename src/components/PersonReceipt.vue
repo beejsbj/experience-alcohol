@@ -235,7 +235,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
         <!-- ── how it's going ────────────────────────────────── -->
         <section class="relative mt-4">
           <button type="button" class="block origin-left text-left" :style="feelingTilt" aria-label="Underline it again" @click="reUnderline">
-            <p class="pen pen--hard text-[54px] leading-[0.78]">{{ feeling.state.toLowerCase() }}</p>
+            <p class="pen pen--hard text-[54px] leading-[0.78]">{{ feeling.word }}</p>
             <FeelingUnderline :seed="`${person.id}:${feeling.state}`" :bac="underlineBac" :nudge="underlineNudge" class="mt-0.5" />
           </button>
           <Doodle v-if="marks[3]" class="absolute -top-5 right-4" :seed="`${person.id}:3`" v-bind="marks[3]" />
