@@ -134,6 +134,11 @@
     animation: char-in 140ms ease-out backwards;
   }
 
+  .doodle__char {
+    display: inline-block;
+    animation: char-in 160ms ease-out backwards;
+  }
+
   /* Printed rules — dashes a thermal head actually makes. */
   .rule {
     height: 2px;

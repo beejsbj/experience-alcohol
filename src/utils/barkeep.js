@@ -163,7 +163,7 @@ export const LINES = {
     "beer, wine, spirits… you're building a cocktail in there.",
     "mixing, are we. brave.",
     "that's a lot of different bottles for one stomach.",
-    "grape and grain. your funeral. (not literally.)",
+    "grape and grain. the old rhyme exists for a reason.",
     "the liver didn't sign up for a tasting menu.",
     "you're a one-person wedding bar tonight.",
     "every bottle on the shelf wants a go, apparently.",
