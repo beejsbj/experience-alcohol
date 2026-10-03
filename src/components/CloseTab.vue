@@ -3,8 +3,10 @@ import { computed } from "vue";
 import { useSessionStore } from "../stores/session";
 import { triggerHaptic } from "../utils/haptics";
 import { clock, tabNumbers } from "../utils/receipt";
+import { barLine } from "../utils/barkeep";
 import ReceiptPaper from "./ReceiptPaper.vue";
 import Barcode from "./Barcode.vue";
+import BarNote from "./BarNote.vue";
 
 // The last receipt of the night: printed line by line, then the bartender
 // scrawls PAID across it and rings it. Yours to keep.
@@ -28,6 +30,13 @@ const totalPours = computed(() => tab.value?.summary.reduce((s, e) => s + e.drin
 const paidAt = computed(() => (12 + (tab.value?.summary.length ?? 0)) * 90 + 200);
 
 const line = (i) => ({ animation: `print-line 380ms steps(10) ${(i * 90).toFixed(0)}ms backwards` });
+
+// The bar signs off in marker once the paid scrawl is down.
+const signOff = computed(() => {
+  if (!tab.value) return null;
+  const name = tab.value.summary.length === 1 ? tab.value.summary[0].name : "";
+  return barLine({ closing: true, pours: totalPours.value, name, tab: numbers.value.tab }, `keepsake:${tab.value.closedAt}`);
+});
 
 const fresh = () => {
   store.dismissLastTab();
@@ -87,6 +96,9 @@ const fresh = () => {
             WATER BEFORE BED<br />
             THE MANAGEMENT THANKS YOU
           </p>
+          <div v-if="signOff" class="mt-3 px-2 text-left">
+            <BarNote :text="signOff.text" :seed="`keepsake:${tab.closedAt}`" :size="14" :delay="paidAt + 900" />
+          </div>
         </div>
 
         <!-- scrawled across it once the printing stops -->
