@@ -12,7 +12,6 @@ const props = defineProps({
 });
 
 const store = useSessionStore();
-const SHORT = { "Barely Noticeable": "BARELY", "Pleasantly Relaxed": "RELAXED", "Definitely Tipsy": "TIPSY" };
 const justCircled = ref(null);
 
 const options = computed(() =>
@@ -28,7 +27,7 @@ const options = computed(() =>
     }
     return {
       state: s.state,
-      word: SHORT[s.state] ?? s.state.toUpperCase(),
+      word: s.word.toUpperCase(),
       held: props.person.pinnedState === s.state,
       loop: `M${pts.join(" L")}`,
       tilt: (rand() * 2 - 1) * 5,
@@ -55,12 +54,12 @@ const toggle = (option) => {
       class="relative flex-1 py-2.5 text-center"
       @click="toggle(option)"
     >
-      <span class="print text-[11px]" style="letter-spacing: 0.18em" :style="{ fontWeight: option.held ? 700 : 420 }">{{ option.word }}</span>
+      <span class="print text-[11px]" style="letter-spacing: 0.14em" :style="{ fontWeight: option.held ? 700 : 420 }">{{ option.word }}</span>
       <svg
         v-if="option.held"
         class="pointer-events-none absolute left-1/2 top-1/2 overflow-visible"
-        width="100"
-        height="40"
+        width="88"
+        height="36"
         viewBox="0 0 100 40"
         :style="{ transform: `translate(-50%, -50%) rotate(${option.tilt}deg)` }"
         aria-hidden="true"

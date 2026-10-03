@@ -23,28 +23,34 @@ export const DRINKS = [
   { type: "water", abv: 0, volume: 12 },
 ];
 
-// BAC levels and their associated effects
+// BAC levels and their associated effects. `state` is the stable key (it is
+// persisted in `pinnedState` and merged between phones); `word` is what the
+// pen writes on the paper.
 export const FEELING_STATES = [
   {
     state: "Sober",
+    word: "sober",
     minBAC: 0,
     maxBAC: 0.01,
     description: "Normal state, no noticeable effects",
   },
   {
     state: "Barely Noticeable",
+    word: "barely",
     minBAC: 0.01,
     maxBAC: 0.03,
     description: "Subtle warmth, slightly more relaxed but otherwise normal",
   },
   {
     state: "Pleasantly Relaxed",
+    word: "relaxed",
     minBAC: 0.04,
     maxBAC: 0.06,
     description: 'Warm "glow", conversation flows easier, mild mood lift',
   },
   {
     state: "Definitely Tipsy",
+    word: "tipsy",
     minBAC: 0.07,
     maxBAC: 0.09,
     description:
@@ -52,6 +58,7 @@ export const FEELING_STATES = [
   },
   {
     state: "Inhibitions Gone",
+    word: "loose",
     minBAC: 0.1,
     maxBAC: 0.12,
     description:
@@ -59,6 +66,7 @@ export const FEELING_STATES = [
   },
   {
     state: "Feeling Confident",
+    word: "drunk",
     minBAC: 0.13,
     maxBAC: 0.15,
     description:
@@ -66,18 +74,21 @@ export const FEELING_STATES = [
   },
   {
     state: "Overconfident",
+    word: "wasted",
     minBAC: 0.16,
     maxBAC: 0.19,
     description: "Very noticeably drunk, balance affected, emotions amplified",
   },
   {
     state: "Memory Blanks",
+    word: "gone",
     minBAC: 0.2,
     maxBAC: 0.25,
     description: "Stumbling, slurred speech, memory formation impaired",
   },
   {
     state: "Danger Zone",
+    word: "too far",
     minBAC: 0.25,
     maxBAC: 0.35,
     description:
@@ -85,14 +96,17 @@ export const FEELING_STATES = [
   },
   {
     state: "Life Threatening",
+    word: "get help",
     minBAC: 0.35,
     maxBAC: Infinity,
     description: "Risk of coma or death, immediate medical attention required",
   },
 ];
 
+// The levels you can circle and hold. Loose (0.10–0.12) is the adult-register
+// ceiling: above it the paper stops offering a pace and only asks you to slow.
 export const MAINTAINABLE_STATES = FEELING_STATES.filter((state) =>
-  ["Barely Noticeable", "Pleasantly Relaxed", "Definitely Tipsy"].includes(
+  ["Barely Noticeable", "Pleasantly Relaxed", "Definitely Tipsy", "Inhibitions Gone"].includes(
     state.state
   )
 );

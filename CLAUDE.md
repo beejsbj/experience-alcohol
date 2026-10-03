@@ -37,9 +37,17 @@ use a small encrypted relay. Live at https://experience-alcohol.vercel.app.
   Every person edit in the store must go through `touch()` so it carries a rev.
   `src/utils/scatter.js` — seeded jitter ("dried ink"): same seed → same
   wobble forever. **Never `Math.random()` in render paths.**
-  `src/utils/doodles.js` — friends' doodle library + `friendMarks()` (which
-  doodles sit in which slots, in whose ink, accruing with table pours),
-  `friendNote()`, and the feeling-underline family. Pure, tested.
+  `src/utils/doodles.js` — friends' doodle library (~55 shapes, ~35 words)
+  and three placements: `friendMarks()` (eight paper slots — decor, initials,
+  when the tab opened — accruing with table pours, never moving once down),
+  `ledgerMarks()` (a seeded chance per ledger line, pooled from that line
+  alone: drink, which pour, BAC after it, hour, a long gap — stable forever),
+  `stateMark()` (one face beside the headline that follows the level, keyed so
+  it redraws). Plus `friendNote()` and the feeling-underline family. Pure,
+  tested. `src/utils/barkeep.js` — the bar's own voice: ~300 lines by topic,
+  `barLine(ctx, seed)` picks by weighted topic from *bucketed* context; the
+  seed must only change at real moments (pour, verdict, state, hour), never on
+  the clock tick. Pure, tested.
   `src/utils/paper.js` — `tornEdge()` (seeded clip-path teeth), `barcode()`,
   `ringFor()` (where a pour's glass ring sits and how wet it still is). Pure,
   tested. `src/utils/receipt.js` — `standardDrinks`, `peakBAC`, `tabNumbers`,
@@ -98,11 +106,14 @@ use a small encrypted relay. Live at https://experience-alcohol.vercel.app.
 ## Design rules (user's taste — enforced)
 
 - Nothing may look like a web element or form. No visible scrollbars, ever.
-- Two voices: the printer (Martian Mono condensed `.print`, Doto dot matrix
-  `.dots` for big numbers) states facts; a human (Nanum Pen Script `.pen`)
-  annotates. Printed labels only where a real receipt prints them (GUEST,
+- Three hands, two voices: the printer (Martian Mono condensed `.print`, Doto
+  dot matrix `.dots` for big numbers) states facts; humans annotate — friends
+  in their pens (Nanum Pen Script `.pen`), and the bar itself in black marker
+  (Permanent Marker `.marker`, `BarNote.vue`, never a friend's colour, never
+  signed). Printed labels only where a real receipt prints them (GUEST,
   POURS, TAB №); the pen never writes captions like "drinks:". Arrows
-  sparingly.
+  sparingly. The bar's line lives in the margin right of "next pour"; the
+  chart's headroom stays clear.
 - Everything is lit by one lamp: paper, wood, glass. Objects, not cards.
 - It's receipt paper a group of friends are writing all over: pen notes,
   arrows and doodles in friends' inks. No rubber stamps. Nothing personal is
@@ -116,7 +127,10 @@ use a small encrypted relay. Live at https://experience-alcohol.vercel.app.
   faded print, the person's pen, oak/lamp/brass for the table, amber (amber
   only on the dark table — hints, mat labels — never on paper).
 - Spec for the current look: `docs/superpowers/specs/2026-09-25-last-call-v3-design.md`
-  + `2026-09-25-last-call-v3.1-friends-addendum.md`.
+  + `2026-09-25-last-call-v3.1-friends-addendum.md`
+  + `2026-10-03-bar-character-design.md` (the bar's voice, doodle systems,
+  levels — `FEELING_STATES[].word` is what the pen writes; `state` keys stay
+  stable because they're persisted — and the name proposal).
 - Reference for drag feel: tinder-style card stack — paper follows the finger,
   velocity decides the throw.
 
