@@ -103,7 +103,10 @@ const chart = computed(() => {
     const last = events.at(-1);
     const sinceLast = last ? (now.value - last.t) / 60000 : Infinity;
     const level = mine.series.past.at(-1).bac;
-    const noteY = cy < PAD.top + 26 ? cy + 26 : cy - 16;
+    let noteY = cy < PAD.top + 26 ? cy + 26 : cy - 16;
+    // The note runs to the right edge, where "hold" sits: when the held band
+    // is at this level, write the note on the other side of the trace.
+    if (band && Math.abs(noteY - band.labelY) < 14) noteY = noteY < cy ? cy + 26 : cy - 16;
     note = {
       x: Math.min(cx + 12, W - PAD.right - 36),
       y: noteY,
