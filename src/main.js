@@ -6,8 +6,8 @@ import "@fontsource-variable/martian-mono/wdth.css";
 import "@fontsource/doto/latin-900.css";
 // The pen: a real ballpoint hand.
 import "@fontsource/nanum-pen-script/latin-400.css";
-// The bar: a fat black marker, nothing like the friends' pens.
-import "@fontsource/permanent-marker/latin-400.css";
+// The bar: a black brush marker, nothing like the friends' pens.
+import "@fontsource/caveat-brush/latin-400.css";
 import "./assets/main.css";
 
 const app = createApp(App);

@@ -45,7 +45,7 @@
   --font-print: "Martian Mono Variable", ui-monospace, monospace;
   --font-dots: "Doto", "Martian Mono Variable", monospace;
   --font-pen: "Nanum Pen Script", "Bradley Hand", cursive;
-  --font-marker: "Permanent Marker", "Marker Felt", "Comic Sans MS", cursive;
+  --font-marker: "Caveat Brush", "Marker Felt", "Bradley Hand", cursive;
 }
 
 @layer base {
@@ -120,13 +120,20 @@
     -webkit-text-stroke: 0.9px currentColor;
   }
 
-  /* The bar, in a fat black marker. A different implement, not just a colour. */
+  /* The bar, in a black brush marker. A different implement, not just a colour. */
   .marker {
     font-family: var(--font-marker);
     color: var(--marker);
-    line-height: 1.12;
-    letter-spacing: 0.02em;
-    opacity: 0.88;
+    line-height: 1.05;
+    letter-spacing: 0.005em;
+    opacity: 0.9;
+  }
+
+  .marker__sign {
+    display: inline-block;
+    font-size: 0.86em;
+    opacity: 0.8;
+    white-space: nowrap;
   }
 
   .marker__char {

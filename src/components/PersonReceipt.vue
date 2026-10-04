@@ -287,7 +287,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
           <div class="mt-2.5 flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
             <p class="pen text-[26px]" :style="tilt('pour-note', { r: 1.5, x: 3, y: 1 })">{{ pourNote }}</p>
             <div class="ml-auto max-w-[53%] pt-1.5 text-right">
-              <BarNote :text="bar.text" :seed="`bar:${person.id}`" :size="13.5" />
+              <BarNote :text="bar.text" :seed="`bar:${person.id}`" :size="16" />
             </div>
           </div>
         </section>
@@ -392,7 +392,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
         </button>
         <div v-if="closing" class="mt-2 flex items-start justify-between gap-3">
           <div class="max-w-[58%]">
-            <BarNote :text="barClosing.text" :seed="`bar-closing:${person.id}`" :size="13.5" />
+            <BarNote :text="barClosing.text" :seed="`bar-closing:${person.id}`" :size="16" />
           </div>
           <button type="button" class="pen shrink-0 text-[20px]" @click="closing = false">no — keep it open</button>
         </div>

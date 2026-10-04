@@ -30,16 +30,20 @@ on thermal paper — never a ballpoint, never in a friend's colour.
 | --- | --- | --- | --- |
 | Printer | Martian Mono condensed `.print`, Doto `.dots` | print ink | facts |
 | Friends | Nanum Pen Script `.pen` | each friend's pen (`PERSON_COLORS`) | notes, doodles, circles |
-| **The bar** | **Permanent Marker `.marker`** | **`--marker` #141210 (near-black)** | **one line at a time** |
+| **The bar** | **Caveat Brush `.marker`** | **`--marker` #141210 (near-black)** | **one line at a time, signed** |
 
 ### Font
 
-`@fontsource/permanent-marker` (latin-400). Chosen over Rock Salt (scratchy,
-too wide to fit a short line beside "next pour", and hard to read under 16 px)
-and Caveat Brush (too close to Nanum's handwriting). Permanent Marker is
-unmistakably a different implement — a fat marker next to thin ballpoints —
-which is the whole point: you should be able to tell who wrote it before you
-read it.
+`@fontsource/caveat-brush` (latin-400). First pass used Permanent Marker;
+Burooj overruled it ("I don't like the bar being limited to all caps"). A
+mixed-case bake-off in the real app (Caveat Brush, Gochi Hand, Covered By
+Your Grace, Kalam 700, against Permanent Marker — `bar-font-compare.png`)
+picked Caveat Brush: it is the only candidate that still reads as a
+different *implement* — fat brush-marker strokes with real weight beside
+Nanum's thin ballpoint — while fitting the margin at 16 px and drawing
+apostrophes properly. Gochi Hand is thinner and childish, Covered By Your
+Grace is a sketchy fine-liner too close to a pen, Kalam is a tidy school
+hand. You should be able to tell who wrote it before you read it.
 
 ### Voice rules
 
@@ -49,7 +53,9 @@ read it.
 - It never encourages drinking faster or more, never mocks someone for
   stopping, never jokes about driving, and goes quiet-serious past cut-off.
 - It never writes captions ("drinks:"). It comments.
-- It is not signed. The hand is the signature.
+- It signs every line **— the bar**, in its own hand and ink, the way a
+  friend signs "— sam" (Burooj's call; the first pass left it unsigned). The
+  signature is written a beat after the line finishes.
 
 ### Where it writes
 
@@ -214,10 +220,10 @@ closing time. If Burooj prefers Last Call, nothing here needs to change.
 
 ## Judgment calls Burooj may want to overrule
 
-1. **Marker font: Permanent Marker**, not Rock Salt. Swap is one import and
-   one `--font-marker` line.
-2. **The bar is unsigned.** No "— the bar". Add a signature in `BarNote.vue`
-   if the hand isn't enough.
+1. ~~Marker font: Permanent Marker.~~ **Overruled → Caveat Brush** (mixed
+   case). Swap is still one import and one `--font-marker` line.
+2. ~~The bar is unsigned.~~ **Overruled → every line is signed "— the bar"**
+   (`BarNote.vue`, `signed` prop defaults on).
 3. **No arrow at all** beside the bar's line; the old up-arrow is gone rather
    than redrawn. `InkArrow` still exists for "circle one to hold it".
 4. **Friends' notes moved to the totals block**, not deleted. If one voice in

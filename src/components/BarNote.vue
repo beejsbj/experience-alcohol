@@ -2,31 +2,33 @@
 import { computed } from "vue";
 import { scatterRand } from "../utils/scatter";
 
-// The bar writes in black marker. A line is written on character by
-// character, each one sitting a little off its baseline the way a fat
-// chisel tip does. Keyed on the text so a new line is written over the old
-// one, not swapped in.
+// The bar writes in black brush marker and signs itself, the way a friend
+// signs a note. A line is written on character by character, each one
+// sitting a little off its baseline; the signature follows a beat later.
+// Keyed on the text so a new line is written over the old one, not swapped.
 const props = defineProps({
   text: { type: String, required: true },
   seed: { type: String, required: true },
-  size: { type: Number, default: 13.5 },
-  // ms per character; the whole line finishes in under a second
+  size: { type: Number, default: 16 },
+  // ms per character; the whole line finishes in about a second
   pace: { type: Number, default: 22 },
   // ms before the marker touches the paper
   delay: { type: Number, default: 0 },
+  signed: { type: Boolean, default: true },
 });
 
-// Permanent Marker's straight apostrophe is a tall tick that reads as an I
-// in an all-caps face ("LAMPIS"); the curly one is a real apostrophe. Quotes
-// likewise. Punctuation also stays upright — a tilted ' is what made it read
-// as a letter in the first place.
+const SIGNATURE = "— the bar";
+
+// Curly quotes and apostrophes: a brush marker draws them as proper marks,
+// where a straight tick can read as a letter. Punctuation also stays
+// upright; only letters get the hand's wobble.
 const typeset = (text) =>
   text
     .replace(/(^|[\s(])"/g, "$1“")
     .replaceAll('"', "”")
     .replace(/(^|[\s(])'/g, "$1‘")
     .replaceAll("'", "’");
-const PUNCT = /[‘’“”.,;:!?…()\-]/;
+const PUNCT = /[‘’“”.,;:!?…()\-—]/;
 
 const words = computed(() => {
   const rand = scatterRand(`marker:${props.seed}:${props.text}`);
@@ -49,6 +51,8 @@ const words = computed(() => {
   }));
 });
 
+// The signature lands once the line is written.
+const signDelay = computed(() => props.delay + Math.min(props.text.length * props.pace, 1400) + 160);
 const tilt = computed(() => ((scatterRand(`marker-tilt:${props.seed}`)() * 2 - 1) * 2.4).toFixed(2));
 </script>
 
@@ -57,13 +61,17 @@ const tilt = computed(() => ((scatterRand(`marker-tilt:${props.seed}`)() * 2 - 1
     :key="text"
     class="marker"
     :style="{ fontSize: `${size}px`, transform: `rotate(${tilt}deg)` }"
-    :aria-label="text"
+    :aria-label="signed ? `${text} ${SIGNATURE}` : text"
   >
     <template v-for="(w, wi) in words" :key="wi">
       <span class="inline-block whitespace-nowrap" aria-hidden="true">
         <span v-for="(c, ci) in w.chars" :key="ci" class="marker__char" :style="c.style">{{ c.char }}</span>
       </span>
       <span v-if="wi < words.length - 1" aria-hidden="true">{{ " " }}</span>
+    </template>
+    <template v-if="signed">
+      <br />
+      <span class="marker__sign marker__char" aria-hidden="true" :style="{ animationDelay: `${signDelay}ms` }">{{ SIGNATURE }}</span>
     </template>
   </p>
 </template>

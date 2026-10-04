@@ -98,7 +98,7 @@ const fresh = () => {
             THE MANAGEMENT THANKS YOU
           </p>
           <div v-if="signOff" class="mt-3 px-2 text-left">
-            <BarNote :text="signOff.text" :seed="`keepsake:${tab.closedAt}`" :size="14" :delay="paidAt + 900" />
+            <BarNote :text="signOff.text" :seed="`keepsake:${tab.closedAt}`" :size="17" :delay="paidAt + 900" />
           </div>
         </div>
 
