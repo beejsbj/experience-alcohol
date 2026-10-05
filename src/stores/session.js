@@ -51,6 +51,7 @@ const createSession = (people = null) => ({
   id: uid(),
   nickname: "tonight",
   startedAt: new Date().toISOString(),
+  startedHour: new Date().getHours(),
   people: people ?? [buildPerson(1, { name: "", needsIntro: true, color: pickPen() })],
   events: [],
   customDrinks: [],
@@ -96,6 +97,7 @@ const migrateLegacy = (raw) => {
       ...createSession(people),
       events,
       customDrinks,
+      startedHour: timestamps.length ? new Date(Math.min(...timestamps)).getUTCHours() : new Date().getHours(),
       startedAt: timestamps.length
         ? new Date(Math.min(...timestamps)).toISOString()
         : new Date().toISOString(),

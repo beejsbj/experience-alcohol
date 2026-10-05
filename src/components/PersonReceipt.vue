@@ -114,7 +114,7 @@ const totals = computed(() => ({
 // ── The table writes on it ────────────────────────────────────────────────
 const friends = computed(() => store.activePeople.filter((p) => p.id !== props.person.id && !p.needsIntro));
 const SLOTS = 8;
-const startHour = computed(() => new Date(store.session.startedAt).getHours());
+const startHour = computed(() => store.session.startedHour ?? new Date(store.session.startedAt).getUTCHours());
 const marks = computed(() => {
   const placed = friendMarks(props.person.id, store.session.events.length, props.person.paperInks ?? [], props.person.color, SLOTS, {
     name: props.person.name,
@@ -160,13 +160,14 @@ const barCtx = computed(() => ({
   bac: bac.value,
   pinned: props.person.pinnedState,
   falling: sinceLastBucket.value >= 45,
+  comingDown: sinceLastBucket.value >= 45 && bac.value > 0.02,
   hour: hour.value,
   name: props.person.name,
   tab: numbers.value.tab,
 }));
 const beat = computed(() => {
   const c = barCtx.value;
-  return `${props.person.id}:${c.pours}:${c.waters}:${c.verdict}:${c.state}:${c.hour}:${c.sinceLastMin}:${c.pinned ?? ""}:${c.lastType ?? ""}`;
+  return `${props.person.id}:${c.pours}:${c.waters}:${c.verdict}:${c.state}:${c.hour}:${c.sinceLastMin}:${c.pinned ?? ""}:${c.lastType ?? ""}:${c.comingDown}`;
 });
 const bar = computed(() => barLine(barCtx.value, beat.value));
 

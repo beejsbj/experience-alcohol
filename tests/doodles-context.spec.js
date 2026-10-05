@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DOODLE_NAMES, LEDGER_POOLS, drawDoodle, friendMarks, ledgerContext, ledgerMarks, stateMark } from "../src/utils/doodles";
 
 const person = { weight: 78, gender: "male" };
@@ -89,6 +89,7 @@ describe("ledgerMarks", () => {
     expect([...seen].some((n) => LEDGER_POOLS.wasted.includes(n))).toBe(true);
 
     const late = [{ id: "l", type: "beer", abv: 0.05, volume: 12, t: new Date("2026-10-04T02:30:00").getTime() }];
+    late[0].ledgerContext = ledgerContext([], late[0], person);
     const lateSeen = new Set();
     for (let k = 0; k < 60; k += 1) {
       const [m] = ledgerMarks(`l${k}`, late, person, {});
@@ -105,6 +106,21 @@ describe("ledgerMarks", () => {
       expect(after).toEqual(before);
       if (before) expect(before.ink).toBe("#111");
     }
+  });
+
+  it("freezes the originating hour and keeps legacy marks independent of timezone", () => {
+    const hour = vi.spyOn(Date.prototype, "getHours");
+    try {
+      hour.mockReturnValue(2);
+      const event = { ...night[0] };
+      event.ledgerContext = ledgerContext([], event, person);
+      expect(event.ledgerContext.hour).toBe(2);
+      const legacy = { ...event };
+      delete legacy.ledgerContext;
+      const before = Array.from({ length: 60 }, (_, i) => ledgerMarks(`tz${i}`, [event, legacy], person));
+      hour.mockReturnValue(14);
+      expect(Array.from({ length: 60 }, (_, i) => ledgerMarks(`tz${i}`, [event, legacy], person))).toEqual(before);
+    } finally { hour.mockRestore(); }
   });
 
   it("keeps legacy marks stable on out-of-order insertion", () => {

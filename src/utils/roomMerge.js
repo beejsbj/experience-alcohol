@@ -45,10 +45,11 @@ export function mergeSessions(local, remote) {
 
   const joinOrder = (a, b) => (a.joinedAt ?? 0) - (b.joinedAt ?? 0) || idOrder(a, b);
 
+  const start = new Date(remote.startedAt) < new Date(local.startedAt) ? remote : local;
   return {
     ...local,
-    startedAt:
-      new Date(remote.startedAt) < new Date(local.startedAt) ? remote.startedAt : local.startedAt,
+    startedAt: start.startedAt,
+    startedHour: start.startedHour ?? new Date(start.startedAt).getUTCHours(),
     people: [...people.values()].sort(joinOrder),
     events: byId([local.events, remote.events]).sort(byTime),
     customDrinks: byId([local.customDrinks, remote.customDrinks]).sort(idOrder),

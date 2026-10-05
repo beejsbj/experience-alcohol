@@ -576,6 +576,7 @@ export function ledgerContext(events, event, person, opts = {}) {
     pours: previous.filter((e) => (e.abv ?? e.alcoholContent ?? 0) > 0).length + ((event.abv ?? event.alcoholContent ?? 0) > 0 ? 1 : 0),
     after: calculateBACAtTime([...previous, event], person, t + 1000),
     gap: last ? (t - (last.t ?? new Date(last.timestamp).getTime())) / 60000 : 0,
+    hour: new Date(t).getHours(),
     first: !previous.length && start != null && t - start >= 0 && t - start < 10 * 60000,
     ink: pens[Math.floor(rand() * pens.length)],
   };
@@ -613,7 +614,7 @@ export function ledgerMarks(personId, events, person, opts = {}) {
       if (after >= 0.16) pool.push(...LEDGER_POOLS.wasted, ...LEDGER_POOLS.wasted);
       else if (after >= 0.1) pool.push(...LEDGER_POOLS.loose);
     }
-    const hour = new Date(t).getHours();
+    const hour = context.hour ?? new Date(t).getUTCHours();
     if (hour >= 1 && hour < 5) pool.push(...LEDGER_POOLS.late);
     if ((context.gap ?? 0) >= 45) pool.push(...LEDGER_POOLS.gap);
     if (context.first) pool.push(...LEDGER_POOLS.first);

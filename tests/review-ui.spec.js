@@ -148,6 +148,24 @@ describe("review UI regressions", () => {
     expect(state.stateDoodle.key).not.toBe("water");
   });
 
+  it("keys the coming-down topic when exact BAC crosses 0.02", async () => {
+    const store = useSessionStore();
+    store.introduce(1, { name: "Sam", weight: 78, gender: "male" });
+    store.logDrink(1, { type: "beer", abv: 0.05, volume: 24 });
+    const state = mount(PersonReceipt, { person: store.person(1) }).setupState;
+    const initial = state.bac;
+    clock.now.value += ((initial - 0.0201) / 0.015) * 3600000;
+    await nextTick();
+    expect(state.barCtx.comingDown).toBe(true);
+    const beat = state.beat;
+    const unchanged = [state.barCtx.state, state.barCtx.verdict, state.barCtx.hour, state.barCtx.sinceLastMin];
+    clock.now.value += 48000;
+    await nextTick();
+    expect(state.barCtx.comingDown).toBe(false);
+    expect([state.barCtx.state, state.barCtx.verdict, state.barCtx.hour, state.barCtx.sinceLastMin]).toEqual(unchanged);
+    expect(state.beat).not.toBe(beat);
+  });
+
   it("keeps emergency guidance when a sober friend closes the whole table", () => {
     const store = useSessionStore();
     const friend = store.addPerson({ name: "Ren", needsIntro: false });

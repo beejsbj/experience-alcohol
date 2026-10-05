@@ -86,6 +86,15 @@ describe("mergeSessions", () => {
     expect(all.people.find((p) => p.id === "host").pinnedState).toBe("Pleasantly Relaxed");
   });
 
+  it("keeps the originating hour with the earliest session start", () => {
+    const a = { ...base(), startedHour: 1 };
+    const b = { ...base(), startedAt: "2026-09-24T19:00:00.000Z", startedHour: 23 };
+    expect(mergeSessions(a, b)).toMatchObject({ startedAt: b.startedAt, startedHour: 23 });
+    expect(mergeSessions(b, a)).toMatchObject({ startedAt: b.startedAt, startedHour: 23 });
+    const legacy = base();
+    expect(mergeSessions(legacy, legacy).startedHour).toBe(20);
+  });
+
   it("treats people saved before revs existed as oldest", () => {
     const legacy = { ...base(), people: [person("host", undefined, { name: "legacy" })] };
     const edited = { ...base(), people: [person("host", { t: 1, by: "d-a" }, { name: "edited" })] };
