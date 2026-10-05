@@ -394,7 +394,7 @@ const nextName = computed(() => nextPerson.value?.name?.trim() || "the next one"
         :ref="(el) => setCardEl(person.id, el)"
         class="pile-card"
       >
-        <PersonReceipt :person="person" />
+        <PersonReceipt :key="`${store.session.id}:${person.id}`" :person="person" />
       </div>
     </div>
 
