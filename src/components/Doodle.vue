@@ -12,14 +12,15 @@ const props = defineProps({
   rot: { type: Number, default: 0 },
   // ms before the pen touches the paper
   delay: { type: Number, default: 0 },
+  animate: { type: Boolean, default: true },
 });
 
 const d = computed(() => drawDoodle(props.name, props.seed));
-const strokeStyle = (i) => ({
+const strokeStyle = (i) => props.animate ? ({
   animation: `pen-draw 360ms ease-out ${props.delay + i * 110}ms backwards`,
   "--len": 100,
-});
-const charStyle = (i) => ({ animationDelay: `${props.delay + i * 45}ms` });
+}) : { animation: "none" };
+const charStyle = (i) => props.animate ? { animationDelay: `${props.delay + i * 45}ms` } : { animation: "none" };
 </script>
 
 <template>

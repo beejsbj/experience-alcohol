@@ -6,6 +6,8 @@ import PourMat from "../src/components/PourMat.vue";
 import ScrubNumber from "../src/components/ScrubNumber.vue";
 import WeightRuler from "../src/components/WeightRuler.vue";
 import { readFileSync } from "node:fs";
+import Doodle from "../src/components/Doodle.vue";
+import CloseTab from "../src/components/CloseTab.vue";
 import PersonReceipt from "../src/components/PersonReceipt.vue";
 
 const clock = vi.hoisted(() => ({ now: null }));
@@ -111,6 +113,57 @@ describe("review UI regressions", () => {
     state.down(pointer(9, 10));
     state.cancel(pointer(9, 10));
     expect(tap).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps settled receipt marks through a friend joining and remount", async () => {
+    const store = useSessionStore();
+    store.introduce(1, { name: "Sam", weight: 78, gender: "male" });
+    store.logDrink(1, { type: "beer", abv: 0.05, volume: 12 });
+    const state = mount(PersonReceipt, { person: store.person(1) }).setupState;
+    const ledger = JSON.parse(JSON.stringify(state.ledgerDoodles));
+    const paper = JSON.parse(JSON.stringify(state.marks));
+    const face = JSON.parse(JSON.stringify(state.stateDoodle));
+    expect(state.note).toBeNull();
+    store.addPerson({ name: "Ren", needsIntro: false, color: "#abcdef" });
+    await nextTick();
+    expect(state.ledgerDoodles).toEqual(ledger);
+    expect(state.marks).toEqual(paper);
+    expect(state.stateDoodle).toEqual(face);
+    expect(state.note.from).toBe("Ren");
+    const remounted = mount(PersonReceipt, { person: store.person(1) }).setupState;
+    expect(remounted.lines.every((line) => !line.fresh)).toBe(true);
+    const doodle = mount(Doodle, { name: "star", seed: "settled", animate: false }).setupState;
+    expect(doodle.strokeStyle(0).animation).toBe("none");
+    expect(doodle.charStyle(0).animation).toBe("none");
+  });
+
+  it("passes exact BAC and actual drink identity into the bar and state face", () => {
+    const store = useSessionStore();
+    store.logDrink(1, { id: "special", type: "water", abv: 0.1, volume: 5 });
+    const state = mount(PersonReceipt, { person: store.person(1) }).setupState;
+    expect(state.barCtx.bac).toBe(state.bac);
+    expect(state.barCtx.lastIsCustom).toBe(true);
+    expect(state.barCtx.lastIsSoft).toBe(false);
+    expect(state.lines[0].isCustom).toBe(true);
+    expect(state.stateDoodle.key).not.toBe("water");
+  });
+
+  it("keeps emergency guidance when a sober friend closes the whole table", () => {
+    const store = useSessionStore();
+    const friend = store.addPerson({ name: "Ren", needsIntro: false });
+    for (let i = 0; i < 20; i++) store.logDrink(friend, { type: "shot", abv: 0.4, volume: 1.5 });
+    const state = mount(PersonReceipt, { person: store.person(1) }).setupState;
+    expect(state.bac).toBe(0);
+    expect(state.barClosing.topic).toBe("getHelp");
+  });
+
+  it("preserves emergency guidance in the closed receipt", () => {
+    const store = useSessionStore();
+    for (let i = 0; i < 20; i++) store.logDrink(1, { type: "shot", abv: 0.4, volume: 1.5 });
+    store.closeTab();
+    const state = mount(CloseTab).setupState;
+    expect(state.signOff.topic).toBe("getHelp");
+    expect(state.signOff.text).toMatch(/^call emergency services now/);
   });
 
   it("updates the printed peak when local time reaches a future peer pour", async () => {

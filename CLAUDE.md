@@ -47,7 +47,8 @@ use a small encrypted relay. Live at https://experience-alcohol.vercel.app.
   tested. `src/utils/barkeep.js` — the bar's own voice: ~300 lines by topic,
   `barLine(ctx, seed)` picks by weighted topic from *bucketed* context; the
   seed must only change at real moments (pour, verdict, state, hour), never on
-  the clock tick. Pure, tested.
+  the clock tick. Safety thresholds use exact BAC; emergency/cutoff override
+  closing, and keepsakes retain the closing-time estimate. Pure, tested.
   `src/utils/paper.js` — `tornEdge()` (seeded clip-path teeth), `barcode()`,
   `ringFor()` (where a pour's glass ring sits and how wet it still is). Pure,
   tested. `src/utils/receipt.js` — `standardDrinks`, `peakBAC`, `tabNumbers`,
@@ -109,8 +110,8 @@ use a small encrypted relay. Live at https://experience-alcohol.vercel.app.
 - Three hands, two voices: the printer (Martian Mono condensed `.print`, Doto
   dot matrix `.dots` for big numbers) states facts; humans annotate — friends
   in their pens (Nanum Pen Script `.pen`), and the bar itself in black marker
-  (Permanent Marker `.marker`, `BarNote.vue`, never a friend's colour, never
-  signed). Printed labels only where a real receipt prints them (GUEST,
+  (Caveat Brush `.marker`, `BarNote.vue`, never a friend's colour, always
+  signed “— the bar”). Printed labels only where a real receipt prints them (GUEST,
   POURS, TAB №); the pen never writes captions like "drinks:". Arrows
   sparingly. The bar's line lives in the margin right of "next pour"; the
   chart's headroom stays clear.

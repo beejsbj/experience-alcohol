@@ -3,6 +3,7 @@ import { computed, ref, toRaw, watch } from "vue";
 import { MAINTAINABLE_STATES, PERSON_COLORS } from "../constants";
 import { calculateBACAtTime } from "../utils/bac";
 import { feelingFor } from "../utils/feelings";
+import { ledgerContext } from "../utils/doodles";
 import { pourCount } from "../utils/receipt";
 import { mergeSessions, sessionFingerprint } from "../utils/roomMerge";
 
@@ -30,6 +31,7 @@ const buildPerson = (id, overrides = {}, seat = 0) => ({
   gender: "male",
   color: PERSON_COLORS[seat % PERSON_COLORS.length],
   pinnedState: null,
+  paperInks: [],
   active: true,
   joinedAt: Date.now() + seat,
   ...overrides,
@@ -160,7 +162,7 @@ export const useSessionStore = defineStore("session", () => {
     const id = `p-${uid()}`;
     const added = buildPerson(
       id,
-      { needsIntro: true, color: pickPen(session.value.people), ...overrides },
+      { needsIntro: true, color: pickPen(session.value.people), paperInks: [...new Set(activePeople.value.filter((p) => !p.needsIntro).map((p) => p.color))].sort(), ...overrides },
       session.value.people.length
     );
     touch(added);
@@ -214,8 +216,9 @@ export const useSessionStore = defineStore("session", () => {
   }
 
   function logDrink(personId, drink) {
-    if (!person(personId)) return;
-    session.value.events.push({
+    const target = person(personId);
+    if (!target) return;
+    const event = {
       id: uid(),
       personId,
       type: drink.type,
@@ -224,7 +227,14 @@ export const useSessionStore = defineStore("session", () => {
       abv: drink.abv ?? drink.alcoholContent,
       volume: drink.volume,
       timestamp: new Date().toISOString(),
+    };
+    const friends = activePeople.value.filter((p) => p.id !== personId && !p.needsIntro);
+    event.ledgerContext = ledgerContext(eventsFor(personId), event, target, {
+      inks: [...new Set(friends.map((p) => p.color))].sort(),
+      ownInk: target.color,
+      startedAt: session.value.startedAt,
     });
+    session.value.events.push(event);
   }
 
   function addCustomDrink(drink) {

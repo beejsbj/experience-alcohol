@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DOODLE_NAMES, LEDGER_POOLS, drawDoodle, friendMarks, ledgerMarks, stateMark } from "../src/utils/doodles";
+import { DOODLE_NAMES, LEDGER_POOLS, drawDoodle, friendMarks, ledgerContext, ledgerMarks, stateMark } from "../src/utils/doodles";
 
 const person = { weight: 78, gender: "male" };
 const T0 = new Date("2026-10-03T21:00:00").getTime();
@@ -23,6 +23,14 @@ describe("the bigger library", () => {
     for (const n of ["pint", "shotglass", "martini", "wineglass", "drop"]) expect(names.has(n)).toBe(false);
   });
 
+  it("adds initials without replacing marks present before introduction", () => {
+    for (let i = 0; i < 40; i++) {
+      const before = friendMarks(`p${i}`, 0, [], "#abc", 8, { name: "" });
+      const after = friendMarks(`p${i}`, 99, [], "#abc", 8, { name: "burooj jaber" });
+      for (const mark of before) expect(after.find((m) => m.slot === mark.slot)).toEqual(mark);
+    }
+  });
+
   it("can write your initials and knows when the tab opened", () => {
     let found = false;
     for (let i = 0; i < 40 && !found; i += 1) {
@@ -44,6 +52,7 @@ describe("ledgerMarks", () => {
     ev(4, "cocktail", 0.15, 8, 70),
     ev(5, "margarita", 0.14, 8, 130),
   ];
+  for (let i = 0; i < night.length; i++) night[i].ledgerContext = ledgerContext(night.slice(0, i), night[i], person, { ownInk: "#abc" });
 
   it("gives one slot per line, deterministically", () => {
     const a = ledgerMarks("p1", night, person, { inks: ["#111", "#222"] });
@@ -70,6 +79,7 @@ describe("ledgerMarks", () => {
 
   it("notices milestones, the small hours and a long gap", () => {
     const shots = Array.from({ length: 10 }, (_, i) => ev(i, "shot", 0.4, 1.5, i * 5));
+    for (let i = 0; i < shots.length; i++) shots[i].ledgerContext = ledgerContext(shots.slice(0, i), shots[i], person);
     const seen = new Set();
     for (let k = 0; k < 60; k += 1) {
       const marks = ledgerMarks(`m${k}`, shots, person, {});
@@ -87,9 +97,25 @@ describe("ledgerMarks", () => {
     expect([...lateSeen].some((n) => LEDGER_POOLS.late.includes(n))).toBe(true);
   });
 
-  it("uses friends' pens, or your own when alone", () => {
-    for (const m of ledgerMarks("p1", night, person, { inks: ["#111"] })) if (m) expect(m.ink).toBe("#111");
-    for (const m of ledgerMarks("p1", night, person, { ownInk: "#abc" })) if (m) expect(m.ink).toBe("#abc");
+  it("freezes contextual ink and marks through earlier peer pours and roster edits", () => {
+    const event = { ...night[3], ledgerContext: ledgerContext(night.slice(0, 3), night[3], person, { inks: ["#111"] }) };
+    for (let k = 0; k < 60; k++) {
+      const [before] = ledgerMarks(`p${k}`, [event], person, { ownInk: "#abc" });
+      const after = ledgerMarks(`p${k}`, [ev("peer", "shot", 0.4, 5, -10), event], { weight: 40, gender: "female" }, { inks: ["#222"], ownInk: "#abc" })[1];
+      expect(after).toEqual(before);
+      if (before) expect(before.ink).toBe("#111");
+    }
+  });
+
+  it("keeps legacy marks stable on out-of-order insertion", () => {
+    const old = { ...night[2] };
+    delete old.ledgerContext;
+    for (let k = 0; k < 60; k++) {
+      const [before] = ledgerMarks(`old${k}`, [old], person, { ownInk: "#abc" });
+      const after = ledgerMarks(`old${k}`, [night[0], old], person, { inks: ["#222"], ownInk: "#abc" })[1];
+      expect(after).toEqual(before);
+      if (before) expect(before.ink).toBe("#abc");
+    }
   });
 });
 
