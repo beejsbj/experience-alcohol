@@ -13,9 +13,9 @@ use a small encrypted relay. Live at https://tipsy-tab.vercel.app.
 - Package manager: **Bun** (`bun.lockb`). Never commit a `package-lock.json`.
 - Tests: `bunx vitest run` (all green expected).
 - Dev server: port 5174 (`.claude/launch.json` has the preview config).
-- Deploy: Vercel CLI, project `beejsbjs-projects/tipsy-tab`. Public URLs are
-  `tipsy-tab.vercel.app` and legacy `experience-alcohol.vercel.app`, which
-  hands off saved state to the new origin via the move module. Hashed
+- Deploy: Vercel CLI, project `beejsbjs-projects/tipsy-tab`. Public URL is
+  `tipsy-tab.vercel.app`; the old `experience-alcohol.vercel.app` only
+  redirects there (no saved state was carried over). Hashed
   deployment URLs are SSO-gated; the public URL only updates via
   `bunx vercel deploy --prod --yes`.
 - Headless-preview quirk: the preview page can be `visibilityState: hidden`,
