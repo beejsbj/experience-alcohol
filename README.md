@@ -1,4 +1,4 @@
-# Experience Alcohol — your tab
+# Tipsy Tab — your tab
 
 A live drink tracker styled as a pile of paper receipts on a bar table. Log
 drinks with a tap, watch an estimated BAC drift in real time, and pin the vibe

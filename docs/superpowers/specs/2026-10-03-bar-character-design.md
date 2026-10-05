@@ -18,7 +18,7 @@ on it in their pens. Feedback after v3.1:
 - Only three holdable levels (barely / relaxed / tipsy), and the headline
   words ("pleasantly relaxed", "inhibitions gone") are a sommelier's register,
   not a bar's.
-- The app still prints `EXPERIENCE ALCOHOL`; it needs a name.
+- The app name is **Tipsy Tab**; the receipt prints `TIPSY` over `TAB`.
 
 ## A third voice: the bar
 
@@ -205,7 +205,11 @@ and merged across phones) and gains a `word` — the pen word on the paper.
 
 ## The name
 
-Proposal only — code, manifest and masthead are not touched in this PR.
+**Decision: Tipsy Tab, chosen by Burooj**. The user-facing app name, PWA
+manifest and receipt mastheads use it; storage keys, room crypto labels,
+package name and deployed URL retain their existing identifiers.
+
+Earlier proposals (superseded by the decision):
 
 | Name | Case for | Case against |
 | --- | --- | --- |
@@ -215,8 +219,8 @@ Proposal only — code, manifest and masthead are not touched in this PR.
 | Proof | Short; alcohol proof and a receipt as proof. | Abstract, widely used, says nothing about friends or a table. |
 | Settle Up | The last thing a table does; social. | Sounds like a bill-splitting app. |
 
-Recommendation: **Open Tab**, with "last call" kept as the bar's phrase at
-closing time. If Burooj prefers Last Call, nothing here needs to change.
+The earlier recommendation was **Open Tab**. The chosen name is **Tipsy Tab**,
+with "last call" kept as the bar's phrase at closing time.
 
 ## Judgment calls Burooj may want to overrule
 
@@ -240,4 +244,4 @@ closing time. If Burooj prefers Last Call, nothing here needs to change.
    tame or too much, the lines are plain arrays in `barkeep.js`.
 9. **The bar's line re-picks on each "beat"** (pour, verdict, state, hour).
    If that feels too chatty, drop `hour` from the beat key.
-10. **Name**: Open Tab recommended; not applied.
+10. **Name**: Decision: Tipsy Tab, chosen by Burooj.
