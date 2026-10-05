@@ -317,9 +317,9 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
             <span class="relative flex min-w-0 items-baseline gap-1">
               <span class="truncate">{{ line.type }}</span><span v-if="line.isCustom" class="pen shrink-0 text-[15px]">✶</span>
               <!-- hung off the line so a scribble never changes the print pitch -->
-              <span v-if="ledgerDoodles[line.id]" class="relative inline-block h-0 w-[20px] shrink-0 overflow-visible align-baseline">
+              <span v-if="ledgerDoodles[line.id]" class="relative inline-block h-0 shrink-0 overflow-visible align-baseline">
                 <Doodle
-                  class="absolute left-0 -top-[14px]"
+                  class="relative -top-[2px]"
                   :seed="`ledger:${line.id}`"
                   v-bind="ledgerDoodles[line.id]"
                   :delay="line.fresh ? 700 : 0"
