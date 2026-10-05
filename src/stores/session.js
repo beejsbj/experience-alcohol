@@ -5,7 +5,7 @@ import { calculateBACAtTime, calculateClosingBAC } from "../utils/bac";
 import { feelingFor } from "../utils/feelings";
 import { ledgerContext } from "../utils/doodles";
 import { pourCount } from "../utils/receipt";
-import { mergeSessions, sessionFingerprint } from "../utils/roomMerge";
+import { captureLegacyPaperName, mergeSessions, sessionFingerprint } from "../utils/roomMerge";
 
 const STORAGE_KEY = "experience-alcohol:session:v2";
 const LEGACY_KEY = "experience-alcohol:fab-layout:v1";
@@ -37,7 +37,7 @@ const buildPerson = (id, overrides = {}, seat = 0) => {
     joinedAt: Date.now() + seat,
     ...overrides,
   };
-  return { ...person, paperName: person.needsIntro ? "" : person.name };
+  return { ...person, paperName: person.needsIntro ? "" : person.name, paperNameBackfillRev: undefined };
 };
 
 // A fresh face at the table: nothing assumed. The receipt asks for a name,
@@ -124,9 +124,15 @@ const loadSession = () => {
         saved.startedHour = new Date(saved.startedAt).getHours();
         upgraded = true;
       }
-      for (const person of saved.people) if (person.paperName == null) {
-        person.paperName = person.needsIntro ? "" : person.name;
-        upgraded = true;
+      for (const person of saved.people) {
+        if (person.paperName == null) {
+          Object.assign(person, captureLegacyPaperName(person));
+          upgraded = true;
+        }
+        if (!Array.isArray(person.paperInks)) {
+          person.paperInks = [...new Set(saved.people.filter((friend) => friend.id !== person.id && friend.active !== false && !friend.needsIntro).map((friend) => friend.color).filter(Boolean))].sort();
+          upgraded = true;
+        }
       }
       if (upgraded) {
         try { storage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch {
@@ -211,7 +217,7 @@ export const useSessionStore = defineStore("session", () => {
       gender: gender === "female" ? "female" : "male",
       weight: Math.min(250, Math.max(30, Number(weight) || 78)),
       needsIntro: false,
-      ...(target.paperName ? {} : { paperName: name?.trim() || `guest ${seat || session.value.people.length}` }),
+      ...(target.paperName ? {} : { paperName: name?.trim() || `guest ${seat || session.value.people.length}`, paperNameBackfillRev: undefined }),
     });
     touch(target);
   }
@@ -306,6 +312,7 @@ export const useSessionStore = defineStore("session", () => {
       ...p,
       pinnedState: null,
       paperName: p.needsIntro ? "" : p.name,
+      paperNameBackfillRev: undefined,
       paperInks: [...new Set(activePeople.value.filter((friend) => friend.id !== p.id && !friend.needsIntro).map((friend) => friend.color))].sort(),
     }));
     session.value = createSession(carryOver);
@@ -326,7 +333,7 @@ export const useSessionStore = defineStore("session", () => {
 
   // Swap in a whole session, e.g. the one a room already shares.
   function adoptSession(next) {
-    session.value = { ...next, people: next.people.map((p) => ({ ...p, paperName: p.paperName ?? (p.needsIntro ? "" : p.name) })) };
+    session.value = { ...next, people: next.people.map(captureLegacyPaperName) };
     focusedPersonId.value = activePeople.value[0]?.id ?? null;
   }
 

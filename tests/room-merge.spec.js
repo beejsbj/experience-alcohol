@@ -110,4 +110,33 @@ describe("mergeSessions", () => {
     const edited = { ...base(), people: [person("host", { t: 1, by: "d-a" }, { name: "edited" })] };
     expect(mergeSessions(legacy, edited).people[0].name).toBe("edited");
   });
+
+  it("joins legacy name backfills associatively in every arrival order", () => {
+    const snapshots = ["Sam", "Sam", "Robin"].map((name, i) => ({ ...base(), people: [person("host", { t: i + 1, by: `d-${i}` }, { name })] }));
+    const permutations = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+    const expected = mergeSessions(mergeSessions(snapshots[0], snapshots[1]), snapshots[2]);
+    expect(expected.people[0]).toMatchObject({ name: "Robin", paperName: "Sam", paperNameBackfillRev: { t: 1, by: "d-0" } });
+    for (const order of permutations) {
+      const [a, b, c] = order.map((i) => snapshots[i]);
+      const left = mergeSessions(mergeSessions(a, b), c);
+      const right = mergeSessions(a, mergeSessions(b, c));
+      expect(left).toEqual(expected);
+      expect(right).toEqual(expected);
+      expect(sessionFingerprint(left)).toBe(sessionFingerprint(right));
+    }
+    const authoritative = { ...base(), people: [person("host", { t: 4, by: "new" }, { name: "Alex", paperName: "Zelda" })] };
+    expect(mergeSessions(expected, authoritative).people[0]).toMatchObject({ paperName: "Zelda", paperNameBackfillRev: undefined });
+    expect(mergeSessions(authoritative, expected)).toEqual(mergeSessions(expected, authoritative));
+    const blank = { ...base(), people: [person("host", { t: 0, by: "new" }, { name: "", paperName: "", needsIntro: true })] };
+    expect(mergeSessions(blank, snapshots[0]).people[0].paperName).toBe("Sam");
+  });
+
+  it("does not let a synthetic UTC hour override a captured hour during grouped merges", () => {
+    const a = base(), b = base(), c = { ...base(), startedHour: 23 };
+    const left = mergeSessions(mergeSessions(a, b), c);
+    const right = mergeSessions(a, mergeSessions(b, c));
+    expect(left.startedHour).toBe(23);
+    expect(left).toEqual(right);
+    expect(sessionFingerprint(left)).toBe(sessionFingerprint(right));
+  });
 });

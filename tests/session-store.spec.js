@@ -124,6 +124,25 @@ describe("session store", () => {
     expect(store.person(1).paperName).toBe("Sam");
   });
 
+  it("captures active introduced friends' inks once when upgrading a local tab", () => {
+    const saved = { id: "saved", startedAt: "2026-10-03T21:00:00Z", people: [
+      { id: 1, name: "Sam", color: "#111", active: true },
+      { id: 2, name: "Ren", color: "#222", active: true },
+      { id: 3, name: "Ria", color: "#333", active: false },
+      { id: 4, name: "", color: "#444", active: true, needsIntro: true },
+    ], events: [], customDrinks: [] };
+    globalThis.localStorage = createStorageMock({ "experience-alcohol:session:v2": JSON.stringify(saved) });
+    const store = useSessionStore();
+    expect(store.person(1).paperInks).toEqual(["#222"]);
+    expect(store.person(2).paperInks).toEqual(["#111"]);
+    const upgraded = JSON.parse(globalThis.localStorage.getItem("experience-alcohol:session:v2"));
+    expect(upgraded.people[0].paperInks).toEqual(["#222"]);
+    upgraded.people[1].color = "#555";
+    globalThis.localStorage.setItem("experience-alcohol:session:v2", JSON.stringify(upgraded));
+    setActivePinia(createPinia());
+    expect(useSessionStore().person(1).paperInks).toEqual(["#222"]);
+  });
+
   it("freezes a newly received legacy guest and retains metadata-only enrichment", () => {
     const store = useSessionStore();
     const remote = JSON.parse(JSON.stringify(store.session));
