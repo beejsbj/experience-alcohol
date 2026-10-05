@@ -2,7 +2,7 @@
 
 Drink-tracker PWA styled as a pile of hand-annotated thermal receipts on a
 lamp-lit oak bar top ("Last Call", v3). Vue 3 (script setup) + Pinia + Tailwind 3 + Vite 5 + Vitest. Each phone keeps its state in localStorage; shared tables
-use a small encrypted relay. Live at https://experience-alcohol.vercel.app.
+use a small encrypted relay. Live at https://tipsy-tab.vercel.app.
 
 ## Environment (read first)
 
@@ -13,7 +13,9 @@ use a small encrypted relay. Live at https://experience-alcohol.vercel.app.
 - Package manager: **Bun** (`bun.lockb`). Never commit a `package-lock.json`.
 - Tests: `bunx vitest run` (all green expected).
 - Dev server: port 5174 (`.claude/launch.json` has the preview config).
-- Deploy: Vercel CLI, project `beejsbjs-projects/experience-alcohol`. Hashed
+- Deploy: Vercel CLI, project `beejsbjs-projects/tipsy-tab`. Public URL is
+  `tipsy-tab.vercel.app`; the old `experience-alcohol.vercel.app` only
+  redirects there (no saved state was carried over). Hashed
   deployment URLs are SSO-gated; the public URL only updates via
   `bunx vercel deploy --prod --yes`.
 - Headless-preview quirk: the preview page can be `visibilityState: hidden`,

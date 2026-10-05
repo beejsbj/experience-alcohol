@@ -1,16 +1,19 @@
 # Tipsy Tab — your tab
 
+![Tipsy Tab: a handwritten thermal receipt on an oak bar top](public/og-image.png)
+
 A live drink tracker styled as a pile of paper receipts on a bar table. Log
 drinks with a tap, watch an estimated BAC drift in real time, and pin the vibe
 you want to hold tonight — the app times your next pour to keep you there.
 
-**Live:** https://experience-alcohol.vercel.app —
+**Live:** https://tipsy-tab.vercel.app —
 installable PWA, add it to your home screen.
 
 ## How it works
 
 - A new receipt asks before it assumes: who it's for, which body (for the
-  math), roughly how heavy — and hands over a pen.
+  math), roughly how heavy — and hands over a pen. Slide the weight ruler
+  to set it; drag written numbers sideways to edit them.
 - One lamp over an oak bar top. Every person gets a thermal receipt; the pile
   is physical — the paper lifts and follows your finger, throw it sideways
   for the next person's tab, pinch to set everything on the table.
@@ -19,20 +22,27 @@ installable PWA, add it to your home screen.
   a barcode. Then the table writes all over it: the name, how you're
   feeling (underlined neatly when sober, loopier later), when the next pour
   is, a loop round "now", friends' doodles and notes in their own inks.
+  Doodles draw into paper slots and beside ledger lines as pours land,
+  staying where they were left; a drawn face follows the level.
+- The bar has a voice too: black brush marker, a line for what's happening
+  at the table, always signed “— the bar”.
 - Drinks are glasses on the rubber bar mat. Tap one to drink it; it drains
-  and refills over exactly the wait the pace asks for. Write your own house
-  special on a cocktail napkin — circle a pint, mug, can, bottle, wine,
+  and refills over exactly the wait the pace asks for. Water is on the mat
+  from the start. Write your own house special on a cocktail napkin — circle
+  a pint, mug, can, bottle, wine,
   bubbly, highball or rocks and a rough strength.
-- Circle a vibe to hold it (barely · relaxed · tipsy) — a highlighter band
-  marks it on the chart and the pen judges the pace: on pace ✓ / easy now… /
-  slow down! / cut off.
+- Circle a vibe to hold it (barely · relaxed · tipsy · loose) — a highlighter
+  band marks it on the chart and the pen judges the pace: on pace ✓ / easy now… /
+  slow down! / cut off. Above those, the receipt keeps calling the level:
+  drunk, wasted and beyond.
 - Every pour leaves a glass ring on the wood that dries as the night goes
   on, and the room closes in a little as your estimate climbs.
 - On the table: everyone's receipt at a glance, a beer coaster with a QR to
   bring a friend's phone to the table, a receipt printer to tear off a tab
   for a newcomer. Share the table by QR, by reading out the code, or by
   sending the link; a friend can type the code in on the back of their
-  coaster. Cut along the scissor line to close the tab and keep the receipt
+  coaster. Phones sync through an encrypted relay, including on mobile
+  data. Cut along the scissor line to close the tab and keep the receipt
   with "paid!" scrawled across it.
 
 BAC is estimated with the Widmark formula. Solo tabs stay in your browser's
