@@ -63,15 +63,25 @@ const tilt = computed(() => ((scatterRand(`marker-tilt:${props.seed}`)() * 2 - 1
     :style="{ fontSize: `${size}px`, transform: `rotate(${tilt}deg)` }"
     :aria-label="signed ? `${text} ${SIGNATURE}` : text"
   >
-    <template v-for="(w, wi) in words" :key="wi">
-      <span class="inline-block whitespace-nowrap" aria-hidden="true">
-        <span v-for="(c, ci) in w.chars" :key="ci" class="marker__char" :style="c.style">{{ c.char }}</span>
-      </span>
-      <span v-if="wi < words.length - 1" aria-hidden="true">{{ " " }}</span>
-    </template>
+    <span class="marker__line">
+      <template v-for="(w, wi) in words" :key="wi">
+        <span class="inline-block whitespace-nowrap" aria-hidden="true">
+          <span v-for="(c, ci) in w.chars" :key="ci" class="marker__char" :style="c.style">{{ c.char }}</span>
+        </span>
+        <span v-if="wi < words.length - 1" aria-hidden="true">{{ " " }}</span>
+      </template>
+    </span>
     <template v-if="signed">
-      <br />
       <span class="marker__sign marker__char" aria-hidden="true" :style="{ animationDelay: `${signDelay}ms` }">{{ SIGNATURE }}</span>
     </template>
   </p>
 </template>
+
+<style scoped>
+.marker__line {
+  display: block;
+  max-width: 24ch;
+  margin-left: auto;
+  text-wrap: balance;
+}
+</style>
