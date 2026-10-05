@@ -159,6 +159,42 @@ describe("review UI regressions", () => {
     expect(mount(PersonReceipt, { person: store.person(1) }).setupState.lines[0].fresh).toBe(false);
   });
 
+  it("draws body marks first revealed by introduction", async () => {
+    const store = useSessionStore();
+    store.introduce(1, { name: "Sam", weight: 78, gender: "male" });
+    for (let i=0;i<12;i++) store.logDrink(1, { type: "water", abv: 0, volume: 12 });
+    const id = store.addPerson();
+    const state = mount(PersonReceipt, { person: store.person(id) }).setupState;
+    expect([...state.settledPaperSlots].every((slot) => slot === "0" || slot === "1")).toBe(true);
+    store.introduce(id, { name: "Ren", weight: 70, gender: "female" });
+    await nextTick();
+    expect(Object.keys(state.marks).filter((slot) => slot !== "0" && slot !== "1").every((slot) => !state.settledPaperSlots.has(slot))).toBe(true);
+  });
+
+  it("reacts to a behind-clock water arrival before a later-timestamped local pour", async () => {
+    const store = useSessionStore();
+    store.introduce(1, { name: "Sam", weight: 78, gender: "male" });
+    store.logDrink(1, { type: "beer", abv: 0.05, volume: 12 });
+    const state = mount(PersonReceipt, { person: store.person(1) }).setupState;
+    const remote = JSON.parse(JSON.stringify(store.session));
+    const timestamp = new Date(Date.now()-60*60000).toISOString();
+    remote.events.push({ id: "skew-water", personId: 1, type: "water", abv: 0, volume: 12, timestamp });
+    store.mergeRemote(remote);
+    await nextTick();
+    expect(store.eventsFor(1).at(-1).type).toBe("beer");
+    expect(state.barCtx).toMatchObject({ lastType: "water", lastIsSoft: true, sinceLastMin: 0, comingDown: false });
+    expect(state.stateDoodle.key).toBe("water");
+    expect(store.session.events.find((e) => e.id === "skew-water").timestamp).toBe(timestamp);
+    const observed = store.latestReceiptFor(1).at;
+    clock.now.value += 15*60000;
+    vi.setSystemTime(clock.now.value);
+    expect(store.mergeRemote(remote)).toBe(false);
+    expect(store.latestReceiptFor(1).at).toBe(observed);
+    expect(mount(PersonReceipt, { person: store.person(1) }).setupState.barCtx.sinceLastMin).toBe(15);
+    store.closeTab();
+    expect(store.latestReceiptFor(1)).toBeNull();
+  });
+
   it("keeps printed initials while the name editor changes the guest", async () => {
     const store = useSessionStore();
     store.introduce(1, { name: "Sam Jones", weight: 78, gender: "male" });

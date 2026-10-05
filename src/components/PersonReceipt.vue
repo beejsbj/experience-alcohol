@@ -118,7 +118,7 @@ const marks = computed(() => {
   });
   return Object.fromEntries(placed.map((m) => [m.slot, { name: m.name, ink: m.ink, rot: m.rot, size: m.size, delay: 200 + m.n * 140 }]));
 });
-const settledPaperSlots = new Set(Object.keys(marks.value));
+const settledPaperSlots = new Set(Object.keys(marks.value).filter((slot) => !props.person.needsIntro || slot === "0" || slot === "1"));
 // Scribbles down the ledger: each line's is settled the moment it's printed.
 const ledgerDoodles = computed(() => {
   const placed = ledgerMarks(props.person.id, events.value, props.person, {
@@ -135,10 +135,11 @@ const note = computed(() => {
 // ── The bar has a word ────────────────────────────────────────────────────
 // Everything it reads is bucketed first, so a new line is written at a real
 // moment (a pour, a verdict, a new hour), never on the second-hand tick.
-const lastEvent = computed(() => events.value.at(-1) ?? null);
+const lastReceipt = computed(() => store.latestReceiptFor(props.person.id));
+const lastEvent = computed(() => events.value.find((event) => event.id === lastReceipt.value?.eventId) ?? events.value.at(-1) ?? null);
 const sinceLastBucket = computed(() => {
   if (!lastEvent.value) return Infinity;
-  const m = (now.value - lastEvent.value.t) / 60000;
+  const m = (now.value - (lastReceipt.value?.at ?? lastEvent.value.t)) / 60000;
   return m < 12 ? 0 : m < 45 ? 15 : 60;
 });
 const hour = computed(() => new Date(now.value).getHours());

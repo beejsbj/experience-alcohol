@@ -97,7 +97,7 @@ const migrateLegacy = (raw) => {
     const timestamps = events.map((event) => new Date(event.timestamp).getTime());
 
     return {
-      ...createSession(people),
+      ...createSession(people.map((p) => capturePaperMetadata({ ...p, paperInks: undefined }, people))),
       events,
       customDrinks,
       startedHour: timestamps.length ? new Date(Math.min(...timestamps)).getHours() : new Date().getHours(),
@@ -144,7 +144,12 @@ const loadSession = () => {
   if (legacyRaw) {
     const migrated = migrateLegacy(legacyRaw);
     if (migrated) {
-      storage.removeItem(LEGACY_KEY);
+      try {
+        storage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+        storage.removeItem(LEGACY_KEY);
+      } catch {
+        // Keep the recoverable v1 source if the converted tab cannot be saved.
+      }
       return migrated;
     }
   }
@@ -156,6 +161,11 @@ export const useSessionStore = defineStore("session", () => {
   const session = ref(loadSession());
   const focusedPersonId = ref(session.value.people.find((p) => p.active)?.id ?? 1);
   const lastTab = ref(null);
+  // Transient reactions use this browser's receipt time, never a peer's clock.
+  // Keep this local: stored/replicated events and historical BAC stay immutable.
+  const lastReceipts = ref(new Map());
+  const latestReceiptFor = (personId) => lastReceipts.value.get(personId) ?? null;
+  const observeReceipt = (event) => lastReceipts.value.set(event.personId, { eventId: event.id, at: Date.now() });
 
   const activePeople = computed(() => session.value.people.filter((p) => p.active));
 
@@ -263,6 +273,7 @@ export const useSessionStore = defineStore("session", () => {
       startedAt: session.value.startedAt,
     });
     session.value.events.push(event);
+    observeReceipt(event);
   }
 
   function addCustomDrink(drink) {
@@ -316,6 +327,7 @@ export const useSessionStore = defineStore("session", () => {
       paperInks: [...new Set(activePeople.value.filter((friend) => friend.id !== p.id && !friend.needsIntro).map((friend) => friend.color))].sort(),
     }));
     session.value = createSession(carryOver);
+    lastReceipts.value.clear();
     focusedPersonId.value = carryOver[0]?.id ?? 1;
   }
 
@@ -326,6 +338,8 @@ export const useSessionStore = defineStore("session", () => {
     const before = sessionFingerprint(session.value);
     const merged = mergeSessions(session.value, remote);
     if (sessionFingerprint(merged) === before) return false;
+    const knownEvents = new Set(session.value.events.map((event) => event.id));
+    for (const event of merged.events) if (!knownEvents.has(event.id)) observeReceipt(event);
     session.value = merged;
     if (!person(focusedPersonId.value)?.active) focusedPersonId.value = activePeople.value[0]?.id;
     return true;
@@ -334,6 +348,7 @@ export const useSessionStore = defineStore("session", () => {
   // Swap in a whole session, e.g. the one a room already shares.
   function adoptSession(next) {
     session.value = { ...next, people: next.people.map((p) => capturePaperMetadata(p, next.people)) };
+    lastReceipts.value.clear();
     focusedPersonId.value = activePeople.value[0]?.id ?? null;
   }
 
@@ -355,6 +370,7 @@ export const useSessionStore = defineStore("session", () => {
     session,
     focusedPersonId,
     lastTab,
+    latestReceiptFor,
     activePeople,
     person,
     eventsByPerson,

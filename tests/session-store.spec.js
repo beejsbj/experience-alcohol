@@ -261,6 +261,26 @@ describe("session store", () => {
       "experience-alcohol:fab-layout:v1"
     );
   });
+
+  it("captures friends' inks after constructing the full v1 guest list", () => {
+    globalThis.localStorage = createStorageMock({ "experience-alcohol:fab-layout:v1": JSON.stringify({ people: [{ id: 1, name: "Sam" }, { id: 2, name: "Ren" }] }) });
+    const store = useSessionStore();
+    expect(store.person(1).paperInks).toEqual([store.person(2).color]);
+    expect(store.person(2).paperInks).toEqual([store.person(1).color]);
+    expect(store.person(1).paperInksBackfill).toBe(true);
+    expect(store.latestReceiptFor(1)).toBeNull();
+    expect(JSON.parse(globalThis.localStorage.getItem("experience-alcohol:session:v2")).people[0].paperInks).toEqual([store.person(2).color]);
+  });
+
+  it("keeps the v1 recovery source when saving the converted tab fails", () => {
+    const raw = JSON.stringify({ people: [{ id: 1, name: "Sam" }] });
+    globalThis.localStorage = createStorageMock({ "experience-alcohol:fab-layout:v1": raw, "experience-alcohol:device": "existing" });
+    globalThis.localStorage.setItem.mockImplementation(() => { throw new Error("quota"); });
+    const store = useSessionStore();
+    expect(store.person(1).name).toBe("Sam");
+    expect(globalThis.localStorage.getItem("experience-alcohol:fab-layout:v1")).toBe(raw);
+    expect(globalThis.localStorage.removeItem).not.toHaveBeenCalled();
+  });
   it("gives torn receipts unique ids and stamps every edit", () => {
     const store = useSessionStore();
     const a = store.addPerson({ name: "sam" });
