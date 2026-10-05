@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useSessionStore } from "../stores/session";
 import { scatter } from "../utils/scatter";
 import WriteOn from "./WriteOn.vue";
@@ -22,6 +22,31 @@ const store = useSessionStore();
 const rulerOpen = ref(false);
 const slip = ref(null);
 const weightEl = ref(null);
+const identity = ref(null);
+const slipStyle = ref({});
+
+const positionSlip = () => {
+  if (!identity.value || !weightEl.value) return;
+  const host = identity.value.getBoundingClientRect();
+  const weight = weightEl.value.getBoundingClientRect();
+  // Use the actual paper bounds, including its seeded rotation. Leave room
+  // for the slip's own slight tilt rather than letting its corners escape.
+  const paper = identity.value.closest(".paper__sheet").getBoundingClientRect();
+  const width = Math.min(260, paper.width - 24);
+  // ScrubNumber reserves space for three digits. Anchor to the visible
+  // writing, not that empty space to the left of a two-digit weight.
+  const written = weightEl.value.querySelector(".scrub-value").getBoundingClientRect();
+  const centre = (written.left + weight.right) / 2;
+  const scale = host.width / identity.value.offsetWidth;
+  const left = Math.max(paper.left + 12, Math.min(centre - width / 2, paper.right - 12 - width));
+  slipStyle.value = {
+    left: `${(left - host.left) / scale}px`,
+    top: `${(weight.bottom - host.top + 4) / scale}px`,
+    width: `${width / scale}px`,
+    "--slip-anchor": `${(centre - left) / scale}px`,
+    transformOrigin: `${(centre - left) / scale}px 0`,
+  };
+};
 
 const namePos = computed(() => scatter(`name-pos:${props.person.id}`, { r: 2.5, x: 3, y: 1 }));
 const bodyPos = computed(() => scatter(`body-pos:${props.person.id}`, { r: 3, x: 2, y: 1 }));
@@ -42,10 +67,24 @@ const closeOnOutside = (e) => {
   if (!slip.value?.contains(e.target) && !weightEl.value?.contains(e.target)) rulerOpen.value = false;
 };
 watch(rulerOpen, (open) => {
-  if (open) setTimeout(() => document.addEventListener("pointerdown", closeOnOutside, true));
-  else document.removeEventListener("pointerdown", closeOnOutside, true);
+  if (open) {
+    positionSlip();
+    nextTick(() => {
+      if (rulerOpen.value) document.addEventListener("pointerdown", closeOnOutside, true);
+    });
+    window.addEventListener("resize", positionSlip);
+  } else {
+    document.removeEventListener("pointerdown", closeOnOutside, true);
+    window.removeEventListener("resize", positionSlip);
+  }
 });
-onBeforeUnmount(() => document.removeEventListener("pointerdown", closeOnOutside, true));
+watch(() => props.person.weight, () => {
+  if (rulerOpen.value) positionSlip();
+}, { flush: "post" });
+onBeforeUnmount(() => {
+  document.removeEventListener("pointerdown", closeOnOutside, true);
+  window.removeEventListener("resize", positionSlip);
+});
 
 const updateName = (name) => {
   store.updatePerson(props.person.id, { name });
@@ -53,7 +92,7 @@ const updateName = (name) => {
 </script>
 
 <template>
-  <div class="relative">
+  <div ref="identity" class="relative">
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0 flex-1">
         <p class="print text-[9px]" style="letter-spacing: 0.24em; color: var(--print-soft)">
@@ -96,7 +135,7 @@ const updateName = (name) => {
 
     <!-- the printed ruler, torn off and laid over the paper — nothing shifts -->
     <Transition name="slip">
-      <div v-if="rulerOpen" ref="slip" class="ruler-slip absolute right-0 top-full z-[5] mt-1 w-[260px] px-2 pb-1 pt-2">
+      <div v-if="rulerOpen" ref="slip" class="ruler-slip absolute z-[5] px-2 pb-1 pt-2" :style="slipStyle">
         <WeightRuler :model-value="person.weight" :min="30" :max="250" @update:model-value="setWeight" />
       </div>
     </Transition>
@@ -110,6 +149,16 @@ const updateName = (name) => {
     0 1px 0 rgba(0, 0, 0, 0.06),
     0 8px 18px rgba(40, 25, 10, 0.28);
   transform: rotate(-1.2deg);
+}
+.ruler-slip::before {
+  content: "";
+  position: absolute;
+  left: var(--slip-anchor);
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  background: var(--paper, #f6f1e7);
+  transform: translateX(-50%) rotate(45deg);
 }
 .slip-enter-active,
 .slip-leave-active {
