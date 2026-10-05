@@ -64,7 +64,7 @@ export function mergeSessions(local, remote) {
     ...local,
     startedAt: start.startedAt,
     startedHour: hours.length ? Math.min(...hours) : new Date(start.startedAt).getUTCHours(),
-    people: [...people.values()].sort(joinOrder),
+    people: [...people.values()].map((p) => ({ ...p, paperName: p.paperName ?? (p.needsIntro ? "" : p.name) })).sort(joinOrder),
     events: byId([local.events, remote.events]).sort(byTime),
     customDrinks: byId([local.customDrinks, remote.customDrinks]).sort(idOrder),
   };
@@ -74,8 +74,8 @@ export function mergeSessions(local, remote) {
 export const sessionFingerprint = (session) =>
   JSON.stringify({
     startedAt: session.startedAt,
-    startedHour: session.startedHour ?? new Date(session.startedAt).getUTCHours(),
-    people: [...session.people].sort(idOrder).map((p) => [p.id, p.rev?.t ?? 0, p.rev?.by ?? "", p.paperName ?? (p.needsIntro ? "" : p.name), p.paperInks ?? []]),
+    startedHour: session.startedHour ?? null,
+    people: [...session.people].sort(idOrder).map((p) => [p.id, p.rev?.t ?? 0, p.rev?.by ?? "", p.paperName ?? null, p.paperInks ?? null]),
     events: session.events.map((e) => e.id).sort(),
     customDrinks: session.customDrinks.map((d) => d.id).sort(),
   });

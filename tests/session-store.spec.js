@@ -124,6 +124,22 @@ describe("session store", () => {
     expect(store.person(1).paperName).toBe("Sam");
   });
 
+  it("freezes a newly received legacy guest and retains metadata-only enrichment", () => {
+    const store = useSessionStore();
+    const remote = JSON.parse(JSON.stringify(store.session));
+    remote.people.push({ id: "legacy-peer", name: "Sam Jones", active: true, needsIntro: false, weight: 78, gender: "male", color: "#111" });
+    expect(store.mergeRemote(remote)).toBe(true);
+    expect(store.person("legacy-peer").paperName).toBe("Sam Jones");
+    store.updatePerson("legacy-peer", { name: "Robin Doe" });
+    expect(store.person("legacy-peer").paperName).toBe("Sam Jones");
+    delete store.person("legacy-peer").paperName;
+    const enriched = JSON.parse(JSON.stringify(store.session));
+    enriched.people.find((p) => p.id === "legacy-peer").paperName = "Sam Jones";
+    expect(store.mergeRemote(enriched)).toBe(true);
+    expect(store.person("legacy-peer").paperName).toBe("Sam Jones");
+    expect(store.mergeRemote(enriched)).toBe(false);
+  });
+
   it("pins and clears a vibe", () => {
     const store = useSessionStore();
     store.pinVibe(1, "Pleasantly Relaxed");
