@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icon.svg", "favicon.ico", "apple-touch-icon-180x180.png"],
       manifest: {
-        name: "Experience Alcohol",
-        short_name: "Tab",
+        name: "Tipsy Tab",
+        short_name: "Tipsy Tab",
         description: "A live drink tracker that helps you hold tonight's vibe.",
         start_url: "/",
         scope: "/",

@@ -226,8 +226,8 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
     <div class="px-[22px] pb-7 pt-7">
       <!-- ── masthead ─────────────────────────────────────────── -->
       <header class="relative text-center">
-        <p class="dots text-[30px]" style="letter-spacing: 0.06em">EXPERIENCE</p>
-        <p class="print mt-1.5 text-[10px] font-bold" style="letter-spacing: 0.62em; padding-left: 0.62em">ALCOHOL</p>
+        <p class="dots text-[30px]" style="letter-spacing: 0.06em">TIPSY</p>
+        <p class="print mt-1.5 text-[10px] font-bold" style="letter-spacing: 0.62em; padding-left: 0.62em">TAB</p>
         <p class="print mt-1.5 text-[8.5px]" style="letter-spacing: 0.2em; color: var(--print-soft)">
           OPEN LATE · POUR KIND · GO HOME SAFE
         </p>

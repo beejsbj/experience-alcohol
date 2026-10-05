@@ -1,4 +1,4 @@
-# experience-alcohol
+# Tipsy Tab
 
 Drink-tracker PWA styled as a pile of hand-annotated thermal receipts on a
 lamp-lit oak bar top ("Last Call", v3). Vue 3 (script setup) + Pinia + Tailwind 3 + Vite 5 + Vitest. Each phone keeps its state in localStorage; shared tables

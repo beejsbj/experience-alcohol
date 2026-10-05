@@ -50,8 +50,8 @@ const fresh = () => {
     <div class="relative w-full" style="max-width: 330px; transform: rotate(-1.5deg); animation: receipt-in 380ms ease-out backwards">
       <ReceiptPaper seed="keepsake" :teeth="30">
         <div class="px-6 pb-8 pt-8 text-center">
-          <p class="dots text-[26px]" style="letter-spacing: 0.06em" :style="line(0)">EXPERIENCE</p>
-          <p class="print mt-1 text-[9px] font-bold" style="letter-spacing: 0.6em; padding-left: 0.6em" :style="line(1)">ALCOHOL</p>
+          <p class="dots text-[26px]" style="letter-spacing: 0.06em" :style="line(0)">TIPSY</p>
+          <p class="print mt-1 text-[9px] font-bold" style="letter-spacing: 0.6em; padding-left: 0.6em" :style="line(1)">TAB</p>
 
           <div class="rule mt-3" :style="line(2)"></div>
           <p class="print mt-2 text-[11px] font-bold" style="letter-spacing: 0.4em" :style="line(3)">TAB CLOSED</p>
