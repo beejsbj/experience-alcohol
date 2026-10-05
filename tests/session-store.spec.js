@@ -38,6 +38,17 @@ describe("session store", () => {
     expect(persisted.events[0].id).toBeTruthy();
   });
 
+  it("persists custom identity even when a name matches a default", async () => {
+    const store = useSessionStore();
+    store.logDrink(1, { id: "custom-water", type: "water", abv: 0.2, volume: 5 });
+    store.logDrink(1, { type: "water", abv: 0, volume: 12 });
+    await nextTick();
+    expect(store.eventsFor(1)[0]).toMatchObject({ isCustom: true, drinkId: "custom-water" });
+    expect(store.eventsFor(1)[1]).toMatchObject({ isCustom: false });
+    const saved = JSON.parse(globalThis.localStorage.setItem.mock.calls.at(-1)[1]);
+    expect(saved.events[0].drinkId).toBe("custom-water");
+  });
+
   it("omits water-only guests from the closing summary", () => {
     const store = useSessionStore();
     store.logDrink(1, { type: "water", abv: 0, volume: 12 });
@@ -54,6 +65,13 @@ describe("session store", () => {
     store.logDrink(1, { type: "water", abv: 0, volume: 12 });
     store.closeTab();
     expect(store.lastTab.summary).toEqual([]);
+  });
+
+  it("retains the live emergency estimate when closing the tab", () => {
+    const store = useSessionStore();
+    for (let i = 0; i < 20; i++) store.logDrink(1, { type: "shot", abv: 0.4, volume: 1.5 });
+    store.closeTab();
+    expect(store.lastTab.summary[0].closingBAC).toBeGreaterThan(0.35);
   });
 
   it("pins and clears a vibe", () => {

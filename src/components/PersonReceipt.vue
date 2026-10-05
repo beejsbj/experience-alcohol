@@ -3,10 +3,11 @@ import { computed, onMounted, ref } from "vue";
 import { useSessionStore } from "../stores/session";
 import { useRoomStore } from "../stores/room";
 import { useLiveNow } from "../composables/useLiveNow";
-import { calculateBACAtTime, calculateSingleDrinkBAC } from "../utils/bac";
+import { calculateBACAtTime, calculateSingleDrinkBAC, isSoft } from "../utils/bac";
 import { CUTOFF_BAC, feelingFor, nextPourMinutes, stampFor } from "../utils/feelings";
 import { clock, peakBAC, pourCount, standardDrinks, tabNumbers } from "../utils/receipt";
 import { friendMarks, friendNote, ledgerMarks, stateMark } from "../utils/doodles";
+import { isCustomDrink } from "../utils/drinkIdentity";
 import { barLine } from "../utils/barkeep";
 import { DRINKS } from "../constants";
 import { scatter, scatterRand } from "../utils/scatter";
@@ -82,7 +83,7 @@ const lines = computed(() =>
       ml: `${Math.round(event.volume * 29.57)}ML`,
       abv: `${Number((abv * 100).toFixed(1))}%`,
       delta: delta > 0 ? `+${delta.toFixed(3).slice(1)}` : "—",
-      isCustom: !DEFAULT_TYPES.has(event.type),
+      isCustom: isCustomDrink(event),
       // printed since this paper was picked up: feed it out of the head
       fresh: new Date(event.timestamp).getTime() > mountedAt.value - 1500,
     };
@@ -133,9 +134,9 @@ const ledgerDoodles = computed(() => {
   return Object.fromEntries(events.value.map((e, i) => [e.id, placed[i]]).filter(([, m]) => m));
 });
 const note = computed(() => {
-  if (!events.value.length) return null;
+  if (!events.value.length || !friends.value.length) return null;
   const n = friendNote(props.person.id, verdict.value, friends.value.map((f) => ({ name: f.name, color: f.color })));
-  return { text: n.text, from: n.from?.name?.trim() || "the bar", ink: n.from?.color ?? props.person.color };
+  return { text: n.text, from: n.from.name?.trim() || "a friend", ink: n.from.color };
 });
 
 // ── The bar has a word ────────────────────────────────────────────────────
@@ -148,19 +149,19 @@ const sinceLastBucket = computed(() => {
   return m < 12 ? 0 : m < 45 ? 15 : 60;
 });
 const hour = computed(() => new Date(now.value).getHours());
-const bacBucket = computed(() => Math.round(bac.value * 100) / 100);
 const waters = computed(() => events.value.length - pours.value);
 const mixed = computed(() => [...new Set(events.value.filter((e) => (e.abv ?? e.alcoholContent) > 0).map((e) => e.type))].join(","));
 const barCtx = computed(() => ({
   pours: pours.value,
   waters: waters.value,
   lastType: lastEvent.value?.type,
-  lastIsCustom: lastEvent.value ? !DEFAULT_TYPES.has(lastEvent.value.type) : false,
+  lastIsCustom: lastEvent.value ? isCustomDrink(lastEvent.value) : false,
+  lastIsSoft: lastEvent.value ? isSoft(lastEvent.value) : false,
   sinceLastMin: sinceLastBucket.value,
   types: mixed.value ? mixed.value.split(",") : [],
   verdict: verdict.value,
   state: feeling.value.state,
-  bac: bacBucket.value,
+  bac: bac.value,
   pinned: props.person.pinnedState,
   falling: sinceLastBucket.value >= 45,
   hour: hour.value,
@@ -177,7 +178,7 @@ const bar = computed(() => barLine(barCtx.value, beat.value));
 // redrawn (keyed) when the level, or the shape of the night, changes.
 const stateDoodle = computed(() => {
   const c = barCtx.value;
-  const m = stateMark({ state: c.state, verdict: c.verdict, pinned: c.pinned, sinceLastMin: c.sinceLastMin, lastType: c.lastType, pours: c.pours }, String(props.person.id));
+  const m = stateMark({ state: c.state, verdict: c.verdict, pinned: c.pinned, sinceLastMin: c.sinceLastMin, lastType: c.lastType, lastIsSoft: c.lastIsSoft, lastIsCustom: c.lastIsCustom, pours: c.pours }, String(props.person.id));
   const pens = inks.value.length ? inks.value : [props.person.color];
   const ink = pens[Math.floor(scatterRand(`state-ink:${props.person.id}:${m.key}`)() * pens.length)];
   return { ...m, ink };

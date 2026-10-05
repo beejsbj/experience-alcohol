@@ -2,6 +2,7 @@
 // seed always draws the same doodle the same way, in the same place.
 
 import { scatterRand } from "./scatter";
+import { isCustomDrink } from "./drinkIdentity";
 import { calculateBACAtTime } from "./bac";
 
 const TAU = Math.PI * 2;
@@ -587,7 +588,7 @@ export function ledgerMarks(personId, events, person, opts = {}) {
     if (rand() > chance) return null;
 
     const pool = [];
-    const custom = !defaults.has(e.type);
+    const custom = isCustomDrink(e);
     pool.push(...LEDGER_POOLS[soft ? "water" : custom ? "house" : DRINK_POOL[e.type] ?? "house"]);
     if (!soft) {
       if (pours === 3) pool.push(...LEDGER_POOLS.third, ...LEDGER_POOLS.third);
@@ -640,7 +641,7 @@ export function stateMark(ctx, seed) {
   let names;
   let key;
   if (ctx.verdict === "CUT OFF") [names, key] = [["face_x"], "cutoff"];
-  else if (ctx.lastType === "water" && since < 12) [names, key] = [["halo", "drop"], "water"];
+  else if ((ctx.lastIsSoft ?? (ctx.lastType === "water" && !ctx.lastIsCustom)) && since < 12) [names, key] = [["halo", "drop"], "water"];
   else if (ctx.pinned && ctx.verdict === "ON PACE" && (ctx.pours ?? 0) >= 2) [names, key] = [["anchor", "tortoise"], "held"];
   else if (since >= 45 && (ctx.pours ?? 0) > 0 && ctx.state !== "Sober") [names, key] = [["parachute", "snail"], "down"];
   else [names, key] = [STATE_FACE[ctx.state] ?? ["face_neutral"], ctx.state];

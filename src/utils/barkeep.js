@@ -11,11 +11,11 @@ import { scatterRand } from "./scatter";
 export const LINES = {
   // ── exclusive ─────────────────────────────────────────────────────────
   getHelp: [
-    "this isn't a joke now. get someone.",
-    "call a friend. call someone. now.",
-    "stay with people. don't lie on your back.",
-    "water, a person, a phone. in that order.",
-    "no more. I mean it. get help if you're sick.",
+    "call emergency services now. stay with someone.",
+    "call emergency services now. no more alcohol.",
+    "call emergency services now. don't stay alone.",
+    "call emergency services now. have someone stay with you.",
+    "call emergency services now. follow their instructions.",
   ],
   cutOff: [
     "that's you done. water. I mean it.",
@@ -136,7 +136,7 @@ export const LINES = {
     "this is the sweet spot. don't blow past it.",
     "gently does it.",
     "hold here a while. it's nice here.",
-    "one more and you're over the hump. your call.",
+    "pause here. have a water. let the clock catch up.",
     "you've got a nice glow on. keep it a glow.",
     "right about now, a water looks good on you.",
     "stay a while at this level. it suits you.",
@@ -502,22 +502,22 @@ const DRINK_TOPIC = { beer: "beer", wine: "wine", cocktail: "cocktail", shot: "s
  */
 export function barTopics(ctx) {
   const { pours = 0, sinceLastMin = Infinity, verdict = "ON PACE", state = "Sober", bac = 0, hour = 21 } = ctx;
-  if (ctx.closing) return [["closing", 1]];
   if (bac >= 0.35) return [["getHelp", 1]];
   if (verdict === "CUT OFF" || bac >= 0.25) return [["cutOff", 1]];
+  if (ctx.closing) return [["closing", 1]];
 
   const w = [];
   const fresh = sinceLastMin < 12;
-  if (ctx.lastType === "water" && fresh) w.push(["water", 6]);
-  if (pours === 1 && fresh && ctx.lastType !== "water") w.push(["firstPour", 6]);
-  if (MILESTONES.has(pours) && fresh && ctx.lastType !== "water") w.push(["milestone", 5]);
+  if ((ctx.lastIsSoft ?? (ctx.lastType === "water" && !ctx.lastIsCustom)) && fresh) w.push(["water", 6]);
+  if (pours === 1 && fresh && !(ctx.lastIsSoft ?? (ctx.lastType === "water" && !ctx.lastIsCustom))) w.push(["firstPour", 6]);
+  if (MILESTONES.has(pours) && fresh && !(ctx.lastIsSoft ?? (ctx.lastType === "water" && !ctx.lastIsCustom))) w.push(["milestone", 5]);
 
   if (verdict === "SLOW DOWN") w.push(["slowDown", 5]);
   else if (verdict === "EASY NOW") w.push(["easyNow", 3]);
   else if (pours >= 2) w.push(["onPace", 2]);
 
   if ((ctx.types?.length ?? 0) >= 3) w.push(["mixing", 3]);
-  if (ctx.lastType && ctx.lastType !== "water") {
+  if (ctx.lastType && !(ctx.lastIsSoft ?? (ctx.lastType === "water" && !ctx.lastIsCustom))) {
     if (ctx.lastIsCustom) w.push(["house", 2]);
     else if (DRINK_TOPIC[ctx.lastType]) w.push([DRINK_TOPIC[ctx.lastType], ctx.lastType === "shot" ? 3 : 2]);
   }

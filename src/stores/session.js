@@ -219,6 +219,8 @@ export const useSessionStore = defineStore("session", () => {
       id: uid(),
       personId,
       type: drink.type,
+      isCustom: Boolean(drink.id),
+      ...(drink.id ? { drinkId: drink.id } : {}),
       abv: drink.abv ?? drink.alcoholContent,
       volume: drink.volume,
       timestamp: new Date().toISOString(),
@@ -252,6 +254,7 @@ export const useSessionStore = defineStore("session", () => {
           color: p.color,
           drinks: pourCount(events),
           peakBAC,
+          closingBAC: calculateBACAtTime(events, p, new Date(closedAt).getTime()),
           peakState: feelingFor(peakBAC).state,
         };
       })
