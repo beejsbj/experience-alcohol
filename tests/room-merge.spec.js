@@ -139,4 +139,30 @@ describe("mergeSessions", () => {
     expect(left).toEqual(right);
     expect(sessionFingerprint(left)).toBe(sessionFingerprint(right));
   });
+
+  it("keeps the winning introduction's name independently of later display edits", () => {
+    const a = { ...base(), people: [person("host", { t: 1, by: "a" }, { name: "Alex", paperName: "Alex", paperNameRev: { t: 1, by: "a" } })] };
+    const b = { ...base(), people: [person("host", { t: 2, by: "b" }, { name: "Zoe", paperName: "Zoe", paperNameRev: { t: 2, by: "b" } })] };
+    expect(mergeSessions(a, b).people[0]).toMatchObject({ name: "Zoe", paperName: "Zoe", paperNameRev: { t: 2, by: "b" } });
+    const c = { ...a, people: [{ ...a.people[0], name: "Robin", rev: { t: 5, by: "a" } }] };
+    const expected = mergeSessions(mergeSessions(a, b), c);
+    expect(expected.people[0]).toMatchObject({ name: "Robin", paperName: "Zoe", paperNameRev: { t: 2, by: "b" } });
+    for (const [x, y, z] of [[a,b,c],[a,c,b],[b,a,c],[b,c,a],[c,a,b],[c,b,a]]) {
+      expect(mergeSessions(mergeSessions(x,y),z)).toEqual(expected);
+      expect(mergeSessions(x,mergeSessions(y,z))).toEqual(expected);
+    }
+  });
+
+  it("backfills inks before reduction and preserves captured inks through all groupings", () => {
+    const snapshots = ["#333", "#111", "#222"].map((color, i) => ({ ...base(), people: [person("host", { t: i + 1, by: "host" }, { color: "#999" }), person("friend", { t: i + 1, by: "peer" }, { color })] }));
+    const expected = mergeSessions(mergeSessions(snapshots[0], snapshots[1]), snapshots[2]);
+    expect(expected.people.find((p) => p.id === "host")).toMatchObject({ paperInks: ["#111"], paperInksBackfill: true });
+    for (const order of [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]]) {
+      const [a,b,c] = order.map((i) => snapshots[i]);
+      expect(mergeSessions(mergeSessions(a,b),c)).toEqual(expected);
+      expect(mergeSessions(a,mergeSessions(b,c))).toEqual(expected);
+    }
+    const captured = { ...base(), people: [person("host", { t: 0, by: "new" }, { paperInks: ["#fff"] })] };
+    expect(mergeSessions(expected,captured).people.find((p) => p.id === "host")).toMatchObject({ paperInks: ["#fff"], paperInksBackfill: undefined });
+  });
 });

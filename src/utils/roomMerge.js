@@ -27,16 +27,28 @@ export const compareRev = (a, b) => {
 // Preserve the source revision of a synthesized legacy name. It is a separate
 // register from editable person fields, so pairwise merges cannot lose the
 // earliest observed name or make the result depend on snapshot grouping.
-export const captureLegacyPaperName = (person) => person.paperName != null ? person : {
-  ...person,
-  paperName: person.needsIntro ? "" : person.name,
-  paperNameBackfillRev: { t: person.rev?.t ?? 0, by: person.rev?.by ?? "" },
+export const capturePaperMetadata = (person, people) => {
+  const sourceRev = { t: person.rev?.t ?? 0, by: person.rev?.by ?? "" };
+  let next = person;
+  if (person.paperName == null) next = {
+    ...next,
+    paperName: person.needsIntro ? "" : person.name,
+    paperNameBackfillRev: sourceRev,
+    paperNameRev: undefined,
+  };
+  else if (person.paperNameBackfillRev == null && person.paperNameRev == null) next = { ...next, paperNameRev: sourceRev };
+  if (!Array.isArray(person.paperInks)) next = {
+    ...next,
+    paperInks: [...new Set(people.filter((friend) => friend.id !== person.id && friend.active !== false && !friend.needsIntro).map((friend) => friend.color).filter(Boolean))].sort(),
+    paperInksBackfill: true,
+  };
+  return next;
 };
 
 const paperNameOrder = (a, b) => {
-  const rank = (p) => !p.paperName ? 2 : p.paperNameBackfillRev != null ? 1 : 0;
+  const rank = (p) => (!p.paperName ? 2 : 0) + (p.paperNameBackfillRev != null ? 1 : 0);
   return rank(a) - rank(b)
-    || (rank(a) === 1 ? compareRev(a.paperNameBackfillRev, b.paperNameBackfillRev) : 0)
+    || (a.paperNameBackfillRev != null ? compareRev(a.paperNameBackfillRev, b.paperNameBackfillRev) : -compareRev(a.paperNameRev, b.paperNameRev))
     || idOrder({ id: a.paperName ?? "" }, { id: b.paperName ?? "" });
 };
 
@@ -45,12 +57,14 @@ const newerPerson = (a, b) => {
   // Frozen paper metadata survives edits from an older client. If two legacy
   // devices independently backfill it, choose a canonical value to converge.
   const nameSource = [a, b].sort(paperNameOrder)[0];
-  const inks = [a.paperInks, b.paperInks].filter(Array.isArray).sort((x, y) => idOrder({ id: JSON.stringify(x) }, { id: JSON.stringify(y) }));
+  const inkSource = [a, b].sort((x, y) => Number(Boolean(x.paperInksBackfill)) - Number(Boolean(y.paperInksBackfill)) || idOrder({ id: JSON.stringify(x.paperInks) }, { id: JSON.stringify(y.paperInks) }))[0];
   return {
     ...winner,
     paperName: nameSource.paperName,
+    paperNameRev: nameSource.paperNameRev,
     paperNameBackfillRev: nameSource.paperNameBackfillRev,
-    ...(inks.length ? { paperInks: inks[0] } : {}),
+    paperInks: inkSource.paperInks,
+    paperInksBackfill: inkSource.paperInksBackfill,
   };
 };
 
@@ -66,8 +80,8 @@ export function mergeSessions(local, remote) {
   if (!local) return remote;
 
   const people = new Map();
-  for (const rawPerson of [...local.people, ...remote.people]) {
-    const person = captureLegacyPaperName(rawPerson);
+  for (const source of [local, remote]) for (const rawPerson of source.people) {
+    const person = capturePaperMetadata(rawPerson, source.people);
     const seen = people.get(person.id);
     people.set(person.id, seen ? newerPerson(seen, person) : person);
   }
@@ -95,7 +109,7 @@ export const sessionFingerprint = (session) =>
     startedAt: session.startedAt,
     startedHour: session.startedHour ?? null,
     startedHourBackfillUTC: session.startedHourBackfillUTC === true,
-    people: [...session.people].sort(idOrder).map((p) => [p.id, p.rev?.t ?? 0, p.rev?.by ?? "", p.paperName ?? null, p.paperNameBackfillRev ?? null, p.paperInks ?? null]),
+    people: [...session.people].sort(idOrder).map((p) => [p.id, p.rev?.t ?? 0, p.rev?.by ?? "", p.paperName ?? null, p.paperNameRev ?? null, p.paperNameBackfillRev ?? null, p.paperInks ?? null, p.paperInksBackfill === true]),
     events: session.events.map((e) => e.id).sort(),
     customDrinks: session.customDrinks.map((d) => d.id).sort(),
   });

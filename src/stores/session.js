@@ -5,7 +5,7 @@ import { calculateBACAtTime, calculateClosingBAC } from "../utils/bac";
 import { feelingFor } from "../utils/feelings";
 import { ledgerContext } from "../utils/doodles";
 import { pourCount } from "../utils/receipt";
-import { captureLegacyPaperName, mergeSessions, sessionFingerprint } from "../utils/roomMerge";
+import { capturePaperMetadata, mergeSessions, sessionFingerprint } from "../utils/roomMerge";
 
 const STORAGE_KEY = "experience-alcohol:session:v2";
 const LEGACY_KEY = "experience-alcohol:fab-layout:v1";
@@ -37,7 +37,7 @@ const buildPerson = (id, overrides = {}, seat = 0) => {
     joinedAt: Date.now() + seat,
     ...overrides,
   };
-  return { ...person, paperName: person.needsIntro ? "" : person.name, paperNameBackfillRev: undefined };
+  return { ...person, paperName: person.needsIntro ? "" : person.name, paperNameRev: { t: person.joinedAt, by: "" }, paperNameBackfillRev: undefined, paperInksBackfill: undefined };
 };
 
 // A fresh face at the table: nothing assumed. The receipt asks for a name,
@@ -124,16 +124,11 @@ const loadSession = () => {
         saved.startedHour = new Date(saved.startedAt).getHours();
         upgraded = true;
       }
-      for (const person of saved.people) {
-        if (person.paperName == null) {
-          Object.assign(person, captureLegacyPaperName(person));
-          upgraded = true;
-        }
-        if (!Array.isArray(person.paperInks)) {
-          person.paperInks = [...new Set(saved.people.filter((friend) => friend.id !== person.id && friend.active !== false && !friend.needsIntro).map((friend) => friend.color).filter(Boolean))].sort();
-          upgraded = true;
-        }
-      }
+      saved.people = saved.people.map((person) => {
+        const normalized = capturePaperMetadata(person, saved.people);
+        if (normalized !== person) upgraded = true;
+        return normalized;
+      });
       if (upgraded) {
         try { storage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch {
           // A full/read-only store must not discard a valid loaded night.
@@ -195,6 +190,7 @@ export const useSessionStore = defineStore("session", () => {
       session.value.people.length
     );
     touch(added);
+    added.paperNameRev = { ...added.rev };
     session.value.people.push(added);
     focusedPersonId.value = id;
     return id;
@@ -212,6 +208,7 @@ export const useSessionStore = defineStore("session", () => {
     const target = person(id);
     if (!target) return;
     const seat = session.value.people.filter((p) => p.active).findIndex((p) => p.id === id) + 1;
+    const capturesName = !target.paperName;
     Object.assign(target, {
       name: name?.trim() || `guest ${seat || session.value.people.length}`,
       gender: gender === "female" ? "female" : "male",
@@ -220,6 +217,7 @@ export const useSessionStore = defineStore("session", () => {
       ...(target.paperName ? {} : { paperName: name?.trim() || `guest ${seat || session.value.people.length}`, paperNameBackfillRev: undefined }),
     });
     touch(target);
+    if (capturesName) target.paperNameRev = { ...target.rev };
   }
 
   function deactivatePerson(id) {
@@ -312,7 +310,9 @@ export const useSessionStore = defineStore("session", () => {
       ...p,
       pinnedState: null,
       paperName: p.needsIntro ? "" : p.name,
+      paperNameRev: { t: new Date(closedAt).getTime(), by: deviceId },
       paperNameBackfillRev: undefined,
+      paperInksBackfill: undefined,
       paperInks: [...new Set(activePeople.value.filter((friend) => friend.id !== p.id && !friend.needsIntro).map((friend) => friend.color))].sort(),
     }));
     session.value = createSession(carryOver);
@@ -333,7 +333,7 @@ export const useSessionStore = defineStore("session", () => {
 
   // Swap in a whole session, e.g. the one a room already shares.
   function adoptSession(next) {
-    session.value = { ...next, people: next.people.map(captureLegacyPaperName) };
+    session.value = { ...next, people: next.people.map((p) => capturePaperMetadata(p, next.people)) };
     focusedPersonId.value = activePeople.value[0]?.id ?? null;
   }
 

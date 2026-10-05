@@ -143,6 +143,39 @@ describe("session store", () => {
     expect(useSessionStore().person(1).paperInks).toEqual(["#222"]);
   });
 
+  it("captures legacy room inks at adoption and retains them through reload and later snapshots", async () => {
+    const store = useSessionStore();
+    const legacy = { id: "room", startedAt: "2026-10-03T21:00:00Z", people: [
+      { id: 1, name: "Sam", color: "#111", active: true },
+      { id: 2, name: "Ren", color: "#222", active: true },
+    ], events: [], customDrinks: [] };
+    store.adoptSession(legacy);
+    expect(store.person(1)).toMatchObject({ paperInks: ["#222"], paperInksBackfill: true });
+    await nextTick();
+    setActivePinia(createPinia());
+    const reloaded = useSessionStore();
+    expect(reloaded.person(1).paperInks).toEqual(["#222"]);
+    const remote = JSON.parse(JSON.stringify(reloaded.session));
+    remote.people.push({ id: 3, name: "Ria", color: "#333", active: true });
+    expect(reloaded.mergeRemote(remote)).toBe(true);
+    expect(reloaded.person(3).paperInks).toEqual(["#111", "#222"]);
+    expect(reloaded.person(1).paperInks).toEqual(["#222"]);
+  });
+
+  it("stamps an introduction once and starts new paper metadata on close", () => {
+    const store = useSessionStore();
+    store.introduce(1, { name: "Sam", gender: "male", weight: 78 });
+    expect(store.person(1).paperNameRev).toEqual(store.person(1).rev);
+    const introduced = { ...store.person(1).paperNameRev };
+    store.updatePerson(1, { name: "Robin" });
+    expect(store.person(1).paperNameRev).toEqual(introduced);
+    store.closeTab();
+    expect(store.person(1).paperName).toBe("Robin");
+    expect(store.person(1).paperNameRev.by).toBe(store.deviceId);
+    expect(store.person(1).paperNameBackfillRev).toBeUndefined();
+    expect(store.person(1).paperInksBackfill).toBeUndefined();
+  });
+
   it("freezes a newly received legacy guest and retains metadata-only enrichment", () => {
     const store = useSessionStore();
     const remote = JSON.parse(JSON.stringify(store.session));
