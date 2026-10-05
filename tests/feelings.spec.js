@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   CUTOFF_BAC,
   feelingFor,
+  feelingWord,
   nextPourMinutes,
   stampFor,
   targetDetails,
 } from "../src/utils/feelings";
+import { FEELING_STATES, MAINTAINABLE_STATES } from "../src/constants";
 
 describe("feelings", () => {
   it("maps BAC to feeling states", () => {
@@ -15,8 +17,26 @@ describe("feelings", () => {
     expect(feelingFor(0.4).state).toBe("Life Threatening");
   });
 
+  it("writes every level as one short pen word, in the bar's register", () => {
+    for (const s of FEELING_STATES) expect(s.word).toMatch(/^[a-z ]{4,9}$/);
+    expect(feelingFor(0.11).word).toBe("loose");
+    expect(feelingFor(0.14).word).toBe("drunk");
+    expect(feelingFor(0.17).word).toBe("wasted");
+    expect(feelingWord("Inhibitions Gone")).toBe("loose");
+    expect(feelingWord("Not A State")).toBe("not a state");
+  });
+
+  it("lets you hold barely, relaxed, tipsy and loose — nothing past 0.12", () => {
+    expect(MAINTAINABLE_STATES.map((s) => s.word)).toEqual(["barely", "relaxed", "tipsy", "loose"]);
+    expect(Math.max(...MAINTAINABLE_STATES.map((s) => s.maxBAC))).toBe(0.12);
+    expect(stampFor(0.11, "Inhibitions Gone")).toBe("ON PACE");
+    expect(stampFor(0.14, "Inhibitions Gone")).toBe("EASY NOW");
+    expect(stampFor(0.16, "Inhibitions Gone")).toBe("SLOW DOWN");
+  });
+
   it("resolves maintainable target details by name", () => {
     expect(targetDetails("Pleasantly Relaxed").maxBAC).toBe(0.06);
+    expect(targetDetails("Inhibitions Gone").maxBAC).toBe(0.12);
     expect(targetDetails("Life Threatening")).toBeNull();
     expect(targetDetails(null)).toBeNull();
   });

@@ -24,7 +24,49 @@ export const compareRev = (a, b) => {
   return aby < bby ? -1 : aby > bby ? 1 : 0;
 };
 
-const newerPerson = (a, b) => (compareRev(a.rev, b.rev) >= 0 ? a : b);
+// Preserve the source revision of a synthesized legacy name. It is a separate
+// register from editable person fields, so pairwise merges cannot lose the
+// earliest observed name or make the result depend on snapshot grouping.
+export const capturePaperMetadata = (person, people) => {
+  const sourceRev = { t: person.rev?.t ?? 0, by: person.rev?.by ?? "" };
+  let next = person;
+  if (person.paperName == null) next = {
+    ...next,
+    paperName: person.needsIntro ? "" : person.name,
+    paperNameBackfillRev: sourceRev,
+    paperNameRev: undefined,
+  };
+  else if (person.paperNameBackfillRev == null && person.paperNameRev == null) next = { ...next, paperNameRev: sourceRev };
+  if (!Array.isArray(person.paperInks)) next = {
+    ...next,
+    paperInks: [...new Set(people.filter((friend) => friend.id !== person.id && friend.active !== false && !friend.needsIntro).map((friend) => friend.color).filter(Boolean))].sort(),
+    paperInksBackfill: true,
+  };
+  return next;
+};
+
+const paperNameOrder = (a, b) => {
+  const rank = (p) => (!p.paperName ? 2 : 0) + (p.paperNameBackfillRev != null ? 1 : 0);
+  return rank(a) - rank(b)
+    || (a.paperNameBackfillRev != null ? compareRev(a.paperNameBackfillRev, b.paperNameBackfillRev) : -compareRev(a.paperNameRev, b.paperNameRev))
+    || idOrder({ id: a.paperName ?? "" }, { id: b.paperName ?? "" });
+};
+
+const newerPerson = (a, b) => {
+  const winner = compareRev(a.rev, b.rev) >= 0 ? a : b;
+  // Frozen paper metadata survives edits from an older client. If two legacy
+  // devices independently backfill it, choose a canonical value to converge.
+  const nameSource = [a, b].sort(paperNameOrder)[0];
+  const inkSource = [a, b].sort((x, y) => Number(Boolean(x.paperInksBackfill)) - Number(Boolean(y.paperInksBackfill)) || idOrder({ id: JSON.stringify(x.paperInks) }, { id: JSON.stringify(y.paperInks) }))[0];
+  return {
+    ...winner,
+    paperName: nameSource.paperName,
+    paperNameRev: nameSource.paperNameRev,
+    paperNameBackfillRev: nameSource.paperNameBackfillRev,
+    paperInks: inkSource.paperInks,
+    paperInksBackfill: inkSource.paperInksBackfill,
+  };
+};
 
 const byTime = (a, b) => {
   const d = new Date(a.timestamp) - new Date(b.timestamp);
@@ -38,17 +80,23 @@ export function mergeSessions(local, remote) {
   if (!local) return remote;
 
   const people = new Map();
-  for (const person of [...local.people, ...remote.people]) {
+  for (const source of [local, remote]) for (const rawPerson of source.people) {
+    const person = capturePaperMetadata(rawPerson, source.people);
     const seen = people.get(person.id);
     people.set(person.id, seen ? newerPerson(seen, person) : person);
   }
 
   const joinOrder = (a, b) => (a.joinedAt ?? 0) - (b.joinedAt ?? 0) || idOrder(a, b);
 
+  const start = new Date(remote.startedAt) < new Date(local.startedAt) ? remote : local;
+  const hours = [local, remote]
+    .filter((session) => session.startedAt === start.startedAt && session.startedHour != null && !session.startedHourBackfillUTC)
+    .map((session) => session.startedHour);
   return {
     ...local,
-    startedAt:
-      new Date(remote.startedAt) < new Date(local.startedAt) ? remote.startedAt : local.startedAt,
+    startedAt: start.startedAt,
+    startedHour: hours.length ? Math.min(...hours) : new Date(start.startedAt).getUTCHours(),
+    startedHourBackfillUTC: hours.length ? undefined : true,
     people: [...people.values()].sort(joinOrder),
     events: byId([local.events, remote.events]).sort(byTime),
     customDrinks: byId([local.customDrinks, remote.customDrinks]).sort(idOrder),
@@ -59,7 +107,9 @@ export function mergeSessions(local, remote) {
 export const sessionFingerprint = (session) =>
   JSON.stringify({
     startedAt: session.startedAt,
-    people: [...session.people].sort(idOrder).map((p) => [p.id, p.rev?.t ?? 0, p.rev?.by ?? ""]),
+    startedHour: session.startedHour ?? null,
+    startedHourBackfillUTC: session.startedHourBackfillUTC === true,
+    people: [...session.people].sort(idOrder).map((p) => [p.id, p.rev?.t ?? 0, p.rev?.by ?? "", p.paperName ?? null, p.paperNameRev ?? null, p.paperNameBackfillRev ?? null, p.paperInks ?? null, p.paperInksBackfill === true]),
     events: session.events.map((e) => e.id).sort(),
     customDrinks: session.customDrinks.map((d) => d.id).sort(),
   });

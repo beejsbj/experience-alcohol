@@ -45,7 +45,7 @@ const scraps = computed(() =>
       person,
       seat: i + 1,
       bac: bac.toFixed(3).split("."),
-      feeling: feelingFor(bac).state.toLowerCase(),
+      feeling: feelingFor(bac).word,
       stamp: stampFor(bac, person.pinnedState),
       pours: pourCount(events),
       // tossed, not placed

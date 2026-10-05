@@ -2,16 +2,25 @@
 import { computed } from "vue";
 import { drawDoodle } from "../utils/doodles";
 
-// One scribble from the doodle library, in whoever's pen drew it.
+// One scribble from the doodle library, in whoever's pen drew it. Strokes
+// are drawn on in order (dashoffset only); a word is written letter by letter.
 const props = defineProps({
   name: { type: String, required: true },
   seed: { type: String, required: true },
   size: { type: Number, default: 28 },
   ink: { type: String, default: "var(--pen)" },
   rot: { type: Number, default: 0 },
+  // ms before the pen touches the paper
+  delay: { type: Number, default: 0 },
+  animate: { type: Boolean, default: true },
 });
 
 const d = computed(() => drawDoodle(props.name, props.seed));
+const strokeStyle = (i) => props.animate ? ({
+  animation: `pen-draw 360ms ease-out ${props.delay + i * 110}ms backwards`,
+  "--len": 100,
+}) : { animation: "none" };
+const charStyle = (i) => props.animate ? { animationDelay: `${props.delay + i * 45}ms` } : { animation: "none" };
 </script>
 
 <template>
@@ -20,7 +29,7 @@ const d = computed(() => drawDoodle(props.name, props.seed));
     class="pen inline-block whitespace-nowrap"
     :style="{ color: ink, fontSize: `${size * 0.85}px`, transform: `rotate(${rot}deg)` }"
     aria-hidden="true"
-  >{{ d.word }}</span>
+  ><span v-for="(c, i) in d.word" :key="i" class="doodle__char" :style="charStyle(i)">{{ c === " " ? " " : c }}</span></span>
   <svg
     v-else
     :width="size"
@@ -39,6 +48,9 @@ const d = computed(() => drawDoodle(props.name, props.seed));
       stroke-width="1.9"
       stroke-linecap="round"
       stroke-linejoin="round"
+      pathLength="100"
+      stroke-dasharray="100"
+      :style="strokeStyle(i)"
       style="mix-blend-mode: multiply"
     />
   </svg>

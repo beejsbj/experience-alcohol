@@ -3,8 +3,11 @@ import { computed } from "vue";
 import { useSessionStore } from "../stores/session";
 import { triggerHaptic } from "../utils/haptics";
 import { clock, tabNumbers } from "../utils/receipt";
+import { barLine } from "../utils/barkeep";
+import { feelingWord } from "../utils/feelings";
 import ReceiptPaper from "./ReceiptPaper.vue";
 import Barcode from "./Barcode.vue";
+import BarNote from "./BarNote.vue";
 
 // The last receipt of the night: printed line by line, then the bartender
 // scrawls PAID across it and rings it. Yours to keep.
@@ -21,6 +24,7 @@ const duration = computed(() => {
 });
 
 const numbers = computed(() => tabNumbers(tab.value?.sessionId ?? "closed"));
+const closingBAC = computed(() => Math.max(0, ...(tab.value?.summary.map((entry) => entry.closingBAC ?? 0) ?? [])));
 const totalPours = computed(() => tab.value?.summary.reduce((s, e) => s + e.drinks, 0) ?? 0);
 
 // Each printed line feeds out a beat after the last.
@@ -28,6 +32,13 @@ const totalPours = computed(() => tab.value?.summary.reduce((s, e) => s + e.drin
 const paidAt = computed(() => (12 + (tab.value?.summary.length ?? 0)) * 90 + 200);
 
 const line = (i) => ({ animation: `print-line 380ms steps(10) ${(i * 90).toFixed(0)}ms backwards` });
+
+// The bar signs off in marker once the paid scrawl is down.
+const signOff = computed(() => {
+  if (!tab.value) return null;
+  const name = tab.value.summary.length === 1 ? tab.value.summary[0].name : "";
+  return barLine({ closing: true, bac: closingBAC.value, pours: totalPours.value, name, tab: numbers.value.tab }, `keepsake:${tab.value.closedAt}`);
+});
 
 const fresh = () => {
   store.dismissLastTab();
@@ -70,7 +81,7 @@ const fresh = () => {
               <span>PEAK EST.</span>
               <span>{{ entry.peakBAC.toFixed(3) }}%</span>
             </div>
-            <p class="pen mt-0.5 text-[20px]" :style="{ color: entry.color || '#2b3a8f' }">peaked {{ entry.peakState.toLowerCase() }}</p>
+            <p class="pen mt-0.5 text-[20px]" :style="{ color: entry.color || '#2b3a8f' }">peaked {{ feelingWord(entry.peakState) }}</p>
           </div>
 
           <div class="rule mt-4" :style="line(7 + tab.summary.length)"></div>
@@ -84,9 +95,12 @@ const fresh = () => {
             <Barcode :seed="`keepsake:${tab.closedAt}`" :height="26" />
           </div>
           <p class="print mt-3 text-[8.5px] leading-[1.7]" style="letter-spacing: 0.16em; color: var(--print-soft)" :style="line(11 + tab.summary.length)">
-            WATER BEFORE BED<br />
+            {{ closingBAC >= 0.35 ? "CALL EMERGENCY SERVICES NOW" : "WATER BEFORE BED" }}<br />
             THE MANAGEMENT THANKS YOU
           </p>
+          <div v-if="signOff" class="mt-3 px-2 text-left">
+            <BarNote :text="signOff.text" :seed="`keepsake:${tab.closedAt}`" :size="17" :delay="signOff.topic === 'getHelp' ? 0 : paidAt + 900" />
+          </div>
         </div>
 
         <!-- scrawled across it once the printing stops -->

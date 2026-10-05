@@ -38,6 +38,17 @@ describe("session store", () => {
     expect(persisted.events[0].id).toBeTruthy();
   });
 
+  it("persists custom identity even when a name matches a default", async () => {
+    const store = useSessionStore();
+    store.logDrink(1, { id: "custom-water", type: "water", abv: 0.2, volume: 5 });
+    store.logDrink(1, { type: "water", abv: 0, volume: 12 });
+    await nextTick();
+    expect(store.eventsFor(1)[0]).toMatchObject({ isCustom: true, drinkId: "custom-water" });
+    expect(store.eventsFor(1)[1]).toMatchObject({ isCustom: false });
+    const saved = JSON.parse(globalThis.localStorage.setItem.mock.calls.at(-1)[1]);
+    expect(saved.events[0].drinkId).toBe("custom-water");
+  });
+
   it("omits water-only guests from the closing summary", () => {
     const store = useSessionStore();
     store.logDrink(1, { type: "water", abv: 0, volume: 12 });
@@ -54,6 +65,131 @@ describe("session store", () => {
     store.logDrink(1, { type: "water", abv: 0, volume: 12 });
     store.closeTab();
     expect(store.lastTab.summary).toEqual([]);
+  });
+
+  it("retains the live emergency estimate when closing the tab", () => {
+    const store = useSessionStore();
+    for (let i = 0; i < 20; i++) store.logDrink(1, { type: "shot", abv: 0.4, volume: 1.5 });
+    store.closeTab();
+    expect(store.lastTab.summary[0].closingBAC).toBeGreaterThan(0.35);
+  });
+
+  it("refreshes paper inks and names for the next night", () => {
+    const store = useSessionStore();
+    store.introduce(1, { name: "Sam", gender: "male", weight: 78 });
+    const ren = store.addPerson({ name: "Ren", needsIntro: false, color: "#111" });
+    const ria = store.addPerson({ name: "Ria", needsIntro: false, color: "#222" });
+    store.deactivatePerson(ren);
+    store.updatePerson(1, { name: "Robin" });
+    expect(store.person(1).paperName).toBe("Sam");
+    store.closeTab();
+    expect(store.person(1).paperName).toBe("Robin");
+    expect(store.person(1).paperInks).toEqual(["#222"]);
+    expect(store.person(ria).paperInks).toEqual([store.person(1).color]);
+  });
+
+  it("backfills local paper metadata once and retains a valid tab if saving fails", () => {
+    const saved = { id: "saved", startedAt: "2026-10-03T21:00:00Z", people: [{ id: 1, name: "Sam", active: true }], events: [], customDrinks: [] };
+    const hour = vi.spyOn(Date.prototype, "getHours").mockReturnValue(2);
+    try {
+      globalThis.localStorage = createStorageMock({ "experience-alcohol:session:v2": JSON.stringify(saved) });
+      const store = useSessionStore();
+      expect(store.session.startedHour).toBe(2);
+      expect(store.person(1).paperName).toBe("Sam");
+      const upgraded = JSON.parse(globalThis.localStorage.getItem("experience-alcohol:session:v2"));
+      expect(upgraded.startedHour).toBe(2);
+      hour.mockReturnValue(14);
+      setActivePinia(createPinia());
+      expect(useSessionStore().session.startedHour).toBe(2);
+      setActivePinia(createPinia());
+      globalThis.localStorage = createStorageMock({ "experience-alcohol:session:v2": JSON.stringify(saved), "experience-alcohol:device": "existing" });
+      globalThis.localStorage.setItem.mockImplementation(() => { throw new Error("quota"); });
+      expect(useSessionStore().session.id).toBe("saved");
+    } finally { hour.mockRestore(); }
+  });
+
+  it("freezes names at legacy room ingress and retains metadata-only room changes", () => {
+    const store = useSessionStore();
+    store.adoptSession({ id: "legacy", startedAt: "2026-10-03T21:00:00Z", people: [{ id: 1, name: "Sam", active: true }], events: [], customDrinks: [] });
+    store.updatePerson(1, { name: "Robin" });
+    expect(store.person(1).paperName).toBe("Sam");
+    const remote = JSON.parse(JSON.stringify(store.session));
+    remote.startedHour = 2;
+    expect(store.mergeRemote(remote)).toBe(true);
+    expect(store.session.startedHour).toBe(2);
+    remote.people[0] = { ...remote.people[0], name: "Alex", rev: { t: Date.now() + 1, by: "peer" } };
+    delete remote.people[0].paperName;
+    store.mergeRemote(remote);
+    expect(store.person(1).name).toBe("Alex");
+    expect(store.person(1).paperName).toBe("Sam");
+  });
+
+  it("captures active introduced friends' inks once when upgrading a local tab", () => {
+    const saved = { id: "saved", startedAt: "2026-10-03T21:00:00Z", people: [
+      { id: 1, name: "Sam", color: "#111", active: true },
+      { id: 2, name: "Ren", color: "#222", active: true },
+      { id: 3, name: "Ria", color: "#333", active: false },
+      { id: 4, name: "", color: "#444", active: true, needsIntro: true },
+    ], events: [], customDrinks: [] };
+    globalThis.localStorage = createStorageMock({ "experience-alcohol:session:v2": JSON.stringify(saved) });
+    const store = useSessionStore();
+    expect(store.person(1).paperInks).toEqual(["#222"]);
+    expect(store.person(2).paperInks).toEqual(["#111"]);
+    const upgraded = JSON.parse(globalThis.localStorage.getItem("experience-alcohol:session:v2"));
+    expect(upgraded.people[0].paperInks).toEqual(["#222"]);
+    upgraded.people[1].color = "#555";
+    globalThis.localStorage.setItem("experience-alcohol:session:v2", JSON.stringify(upgraded));
+    setActivePinia(createPinia());
+    expect(useSessionStore().person(1).paperInks).toEqual(["#222"]);
+  });
+
+  it("captures legacy room inks at adoption and retains them through reload and later snapshots", async () => {
+    const store = useSessionStore();
+    const legacy = { id: "room", startedAt: "2026-10-03T21:00:00Z", people: [
+      { id: 1, name: "Sam", color: "#111", active: true },
+      { id: 2, name: "Ren", color: "#222", active: true },
+    ], events: [], customDrinks: [] };
+    store.adoptSession(legacy);
+    expect(store.person(1)).toMatchObject({ paperInks: ["#222"], paperInksBackfill: true });
+    await nextTick();
+    setActivePinia(createPinia());
+    const reloaded = useSessionStore();
+    expect(reloaded.person(1).paperInks).toEqual(["#222"]);
+    const remote = JSON.parse(JSON.stringify(reloaded.session));
+    remote.people.push({ id: 3, name: "Ria", color: "#333", active: true });
+    expect(reloaded.mergeRemote(remote)).toBe(true);
+    expect(reloaded.person(3).paperInks).toEqual(["#111", "#222"]);
+    expect(reloaded.person(1).paperInks).toEqual(["#222"]);
+  });
+
+  it("stamps an introduction once and starts new paper metadata on close", () => {
+    const store = useSessionStore();
+    store.introduce(1, { name: "Sam", gender: "male", weight: 78 });
+    expect(store.person(1).paperNameRev).toEqual(store.person(1).rev);
+    const introduced = { ...store.person(1).paperNameRev };
+    store.updatePerson(1, { name: "Robin" });
+    expect(store.person(1).paperNameRev).toEqual(introduced);
+    store.closeTab();
+    expect(store.person(1).paperName).toBe("Robin");
+    expect(store.person(1).paperNameRev.by).toBe(store.deviceId);
+    expect(store.person(1).paperNameBackfillRev).toBeUndefined();
+    expect(store.person(1).paperInksBackfill).toBeUndefined();
+  });
+
+  it("freezes a newly received legacy guest and retains metadata-only enrichment", () => {
+    const store = useSessionStore();
+    const remote = JSON.parse(JSON.stringify(store.session));
+    remote.people.push({ id: "legacy-peer", name: "Sam Jones", active: true, needsIntro: false, weight: 78, gender: "male", color: "#111" });
+    expect(store.mergeRemote(remote)).toBe(true);
+    expect(store.person("legacy-peer").paperName).toBe("Sam Jones");
+    store.updatePerson("legacy-peer", { name: "Robin Doe" });
+    expect(store.person("legacy-peer").paperName).toBe("Sam Jones");
+    delete store.person("legacy-peer").paperName;
+    const enriched = JSON.parse(JSON.stringify(store.session));
+    enriched.people.find((p) => p.id === "legacy-peer").paperName = "Sam Jones";
+    expect(store.mergeRemote(enriched)).toBe(true);
+    expect(store.person("legacy-peer").paperName).toBe("Sam Jones");
+    expect(store.mergeRemote(enriched)).toBe(false);
   });
 
   it("pins and clears a vibe", () => {
@@ -124,6 +260,26 @@ describe("session store", () => {
     expect(globalThis.localStorage.removeItem).toHaveBeenCalledWith(
       "experience-alcohol:fab-layout:v1"
     );
+  });
+
+  it("captures friends' inks after constructing the full v1 guest list", () => {
+    globalThis.localStorage = createStorageMock({ "experience-alcohol:fab-layout:v1": JSON.stringify({ people: [{ id: 1, name: "Sam" }, { id: 2, name: "Ren" }] }) });
+    const store = useSessionStore();
+    expect(store.person(1).paperInks).toEqual([store.person(2).color]);
+    expect(store.person(2).paperInks).toEqual([store.person(1).color]);
+    expect(store.person(1).paperInksBackfill).toBe(true);
+    expect(store.latestReceiptFor(1)).toBeNull();
+    expect(JSON.parse(globalThis.localStorage.getItem("experience-alcohol:session:v2")).people[0].paperInks).toEqual([store.person(2).color]);
+  });
+
+  it("keeps the v1 recovery source when saving the converted tab fails", () => {
+    const raw = JSON.stringify({ people: [{ id: 1, name: "Sam" }] });
+    globalThis.localStorage = createStorageMock({ "experience-alcohol:fab-layout:v1": raw, "experience-alcohol:device": "existing" });
+    globalThis.localStorage.setItem.mockImplementation(() => { throw new Error("quota"); });
+    const store = useSessionStore();
+    expect(store.person(1).name).toBe("Sam");
+    expect(globalThis.localStorage.getItem("experience-alcohol:fab-layout:v1")).toBe(raw);
+    expect(globalThis.localStorage.removeItem).not.toHaveBeenCalled();
   });
   it("gives torn receipts unique ids and stamps every edit", () => {
     const store = useSessionStore();

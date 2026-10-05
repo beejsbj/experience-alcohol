@@ -13,6 +13,11 @@ export function feelingFor(bac) {
   );
 }
 
+/** The pen word for a state key ("Inhibitions Gone" → "loose"). */
+export function feelingWord(stateName) {
+  return FEELING_STATES.find((s) => s.state === stateName)?.word ?? String(stateName ?? "").toLowerCase();
+}
+
 export function targetDetails(stateName) {
   if (!stateName) return null;
   return MAINTAINABLE_STATES.find((state) => state.state === stateName) || null;
