@@ -2414,7 +2414,7 @@ bunx vercel link --yes
 bunx vercel deploy --yes
 ```
 
-Expected: CLI prints a preview URL like `https://experience-alcohol-<hash>-beejsbj.vercel.app`. Open it, verify the app loads and the manifest/SW register. **Share this URL with the user for phone testing.**
+Expected: CLI prints a preview URL like `https://tipsy-tab-<hash>-beejsbj.vercel.app`. Open it, verify the app loads and the manifest/SW register. **Share this URL with the user for phone testing.**
 
 - [ ] **Step 4: Commit**
 

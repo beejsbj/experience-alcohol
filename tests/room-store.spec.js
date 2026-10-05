@@ -81,7 +81,7 @@ describe("room codes", () => {
     expect(parseRoomCode(code)).toBe(code);
     expect(parseRoomCode(code.toUpperCase().replace("-", " "))).toBe(code);
     expect(parseRoomCode(` ${code.replace("-", "")} `)).toBe(code);
-    expect(parseRoomCode(`https://experience-alcohol.vercel.app/#t=${code}`)).toBe(code);
+    expect(parseRoomCode(`https://tipsy-tab.vercel.app/#t=${code}`)).toBe(code);
     expect(parseRoomCode("abc")).toBeNull();
     expect(parseRoomCode("")).toBeNull();
     expect(parseRoomCode("https://example.com/#nope")).toBeNull();
