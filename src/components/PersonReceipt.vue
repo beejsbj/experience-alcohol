@@ -274,8 +274,8 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
           />
 
           <div class="relative mt-3 flex items-end justify-between gap-2">
-            <div class="flex items-end gap-1.5">
-              <span class="dots text-[46px]">{{ bacParts[0] }}<span class="dot-point"></span>{{ bacParts[1] }}</span>
+            <div class="flex shrink-0 items-end gap-1.5">
+              <span class="dots whitespace-nowrap text-[clamp(28px,calc(25vw-52px),46px)]">{{ bacParts[0] }}<span class="dot-point"></span>{{ bacParts[1] }}</span>
               <span class="print mb-0.5 text-[9px] leading-[1.25]" style="letter-spacing: 0.14em; color: var(--print-soft)">%<br />EST.</span>
             </div>
             <div class="mb-1 mr-1">
