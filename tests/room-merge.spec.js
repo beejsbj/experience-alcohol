@@ -95,6 +95,16 @@ describe("mergeSessions", () => {
     expect(mergeSessions(legacy, legacy).startedHour).toBe(20);
   });
 
+  it("preserves frozen paper metadata through newer legacy edits and converges hour backfills", () => {
+    const a = { ...base(), startedHour: 21, people: [person("host", { t: 1, by: "a" }, { name: "Sam", paperName: "Sam", paperInks: ["#111"] })] };
+    const b = { ...base(), startedHour: 2, people: [person("host", { t: 2, by: "b" }, { name: "Robin" })] };
+    const merged = mergeSessions(a, b);
+    expect(merged.people[0]).toMatchObject({ name: "Robin", paperName: "Sam", paperInks: ["#111"] });
+    expect(merged.startedHour).toBe(2);
+    expect(mergeSessions(b, a)).toEqual(merged);
+    expect(sessionFingerprint(merged)).not.toBe(sessionFingerprint(a));
+  });
+
   it("treats people saved before revs existed as oldest", () => {
     const legacy = { ...base(), people: [person("host", undefined, { name: "legacy" })] };
     const edited = { ...base(), people: [person("host", { t: 1, by: "d-a" }, { name: "edited" })] };

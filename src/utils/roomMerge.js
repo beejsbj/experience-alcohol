@@ -24,7 +24,18 @@ export const compareRev = (a, b) => {
   return aby < bby ? -1 : aby > bby ? 1 : 0;
 };
 
-const newerPerson = (a, b) => (compareRev(a.rev, b.rev) >= 0 ? a : b);
+const newerPerson = (a, b) => {
+  const winner = compareRev(a.rev, b.rev) >= 0 ? a : b;
+  // Frozen paper metadata survives edits from an older client. If two legacy
+  // devices independently backfill it, choose a canonical value to converge.
+  const names = [a.paperName, b.paperName].filter((name) => typeof name === "string" && name.length).sort();
+  const inks = [a.paperInks, b.paperInks].filter(Array.isArray).sort((x, y) => idOrder({ id: JSON.stringify(x) }, { id: JSON.stringify(y) }));
+  return {
+    ...winner,
+    paperName: names[0] ?? (winner.needsIntro ? "" : winner.name),
+    ...(inks.length ? { paperInks: inks[0] } : {}),
+  };
+};
 
 const byTime = (a, b) => {
   const d = new Date(a.timestamp) - new Date(b.timestamp);
@@ -46,10 +57,13 @@ export function mergeSessions(local, remote) {
   const joinOrder = (a, b) => (a.joinedAt ?? 0) - (b.joinedAt ?? 0) || idOrder(a, b);
 
   const start = new Date(remote.startedAt) < new Date(local.startedAt) ? remote : local;
+  const hours = [local, remote]
+    .filter((session) => session.startedAt === start.startedAt && session.startedHour != null)
+    .map((session) => session.startedHour);
   return {
     ...local,
     startedAt: start.startedAt,
-    startedHour: start.startedHour ?? new Date(start.startedAt).getUTCHours(),
+    startedHour: hours.length ? Math.min(...hours) : new Date(start.startedAt).getUTCHours(),
     people: [...people.values()].sort(joinOrder),
     events: byId([local.events, remote.events]).sort(byTime),
     customDrinks: byId([local.customDrinks, remote.customDrinks]).sort(idOrder),
@@ -60,7 +74,8 @@ export function mergeSessions(local, remote) {
 export const sessionFingerprint = (session) =>
   JSON.stringify({
     startedAt: session.startedAt,
-    people: [...session.people].sort(idOrder).map((p) => [p.id, p.rev?.t ?? 0, p.rev?.by ?? ""]),
+    startedHour: session.startedHour ?? new Date(session.startedAt).getUTCHours(),
+    people: [...session.people].sort(idOrder).map((p) => [p.id, p.rev?.t ?? 0, p.rev?.by ?? "", p.paperName ?? (p.needsIntro ? "" : p.name), p.paperInks ?? []]),
     events: session.events.map((e) => e.id).sort(),
     customDrinks: session.customDrinks.map((d) => d.id).sort(),
   });

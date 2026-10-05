@@ -74,6 +74,56 @@ describe("session store", () => {
     expect(store.lastTab.summary[0].closingBAC).toBeGreaterThan(0.35);
   });
 
+  it("refreshes paper inks and names for the next night", () => {
+    const store = useSessionStore();
+    store.introduce(1, { name: "Sam", gender: "male", weight: 78 });
+    const ren = store.addPerson({ name: "Ren", needsIntro: false, color: "#111" });
+    const ria = store.addPerson({ name: "Ria", needsIntro: false, color: "#222" });
+    store.deactivatePerson(ren);
+    store.updatePerson(1, { name: "Robin" });
+    expect(store.person(1).paperName).toBe("Sam");
+    store.closeTab();
+    expect(store.person(1).paperName).toBe("Robin");
+    expect(store.person(1).paperInks).toEqual(["#222"]);
+    expect(store.person(ria).paperInks).toEqual([store.person(1).color]);
+  });
+
+  it("backfills local paper metadata once and retains a valid tab if saving fails", () => {
+    const saved = { id: "saved", startedAt: "2026-10-03T21:00:00Z", people: [{ id: 1, name: "Sam", active: true }], events: [], customDrinks: [] };
+    const hour = vi.spyOn(Date.prototype, "getHours").mockReturnValue(2);
+    try {
+      globalThis.localStorage = createStorageMock({ "experience-alcohol:session:v2": JSON.stringify(saved) });
+      const store = useSessionStore();
+      expect(store.session.startedHour).toBe(2);
+      expect(store.person(1).paperName).toBe("Sam");
+      const upgraded = JSON.parse(globalThis.localStorage.getItem("experience-alcohol:session:v2"));
+      expect(upgraded.startedHour).toBe(2);
+      hour.mockReturnValue(14);
+      setActivePinia(createPinia());
+      expect(useSessionStore().session.startedHour).toBe(2);
+      setActivePinia(createPinia());
+      globalThis.localStorage = createStorageMock({ "experience-alcohol:session:v2": JSON.stringify(saved), "experience-alcohol:device": "existing" });
+      globalThis.localStorage.setItem.mockImplementation(() => { throw new Error("quota"); });
+      expect(useSessionStore().session.id).toBe("saved");
+    } finally { hour.mockRestore(); }
+  });
+
+  it("freezes names at legacy room ingress and retains metadata-only room changes", () => {
+    const store = useSessionStore();
+    store.adoptSession({ id: "legacy", startedAt: "2026-10-03T21:00:00Z", people: [{ id: 1, name: "Sam", active: true }], events: [], customDrinks: [] });
+    store.updatePerson(1, { name: "Robin" });
+    expect(store.person(1).paperName).toBe("Sam");
+    const remote = JSON.parse(JSON.stringify(store.session));
+    remote.startedHour = 2;
+    expect(store.mergeRemote(remote)).toBe(true);
+    expect(store.session.startedHour).toBe(2);
+    remote.people[0] = { ...remote.people[0], name: "Alex", rev: { t: Date.now() + 1, by: "peer" } };
+    delete remote.people[0].paperName;
+    store.mergeRemote(remote);
+    expect(store.person(1).name).toBe("Alex");
+    expect(store.person(1).paperName).toBe("Sam");
+  });
+
   it("pins and clears a vibe", () => {
     const store = useSessionStore();
     store.pinVibe(1, "Pleasantly Relaxed");

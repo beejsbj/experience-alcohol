@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { useSessionStore } from "../stores/session";
 import { useRoomStore } from "../stores/room";
 import { useLiveNow } from "../composables/useLiveNow";
-import { calculateBACAtTime, calculateSingleDrinkBAC, isSoft } from "../utils/bac";
+import { calculateBACAtTime, calculateSingleDrinkBAC, calculateClosingBAC, isSoft } from "../utils/bac";
 import { CUTOFF_BAC, feelingFor, nextPourMinutes, stampFor } from "../utils/feelings";
 import { clock, peakBAC, pourCount, standardDrinks, tabNumbers } from "../utils/receipt";
 import { friendMarks, friendNote, ledgerMarks, stateMark } from "../utils/doodles";
@@ -117,11 +117,12 @@ const SLOTS = 8;
 const startHour = computed(() => store.session.startedHour ?? new Date(store.session.startedAt).getUTCHours());
 const marks = computed(() => {
   const placed = friendMarks(props.person.id, store.session.events.length, props.person.paperInks ?? [], props.person.color, SLOTS, {
-    name: props.person.name,
+    name: props.person.paperName ?? props.person.name,
     startHour: startHour.value,
   });
   return Object.fromEntries(placed.map((m) => [m.slot, { name: m.name, ink: m.ink, rot: m.rot, size: m.size, delay: 200 + m.n * 140 }]));
 });
+const settledPaperSlots = new Set(Object.keys(marks.value));
 // Scribbles down the ledger: each line's is settled the moment it's printed.
 const ledgerDoodles = computed(() => {
   const placed = ledgerMarks(props.person.id, events.value, props.person, {
@@ -181,7 +182,7 @@ const stateDoodle = computed(() => {
 });
 const barClosing = computed(() => {
   // Closing settles the whole table; a different receipt may need help.
-  const tableBAC = Math.max(bac.value, ...store.session.people.map((person) => calculateBACAtTime(store.eventsFor(person.id), person, now.value)));
+  const tableBAC = Math.max(bac.value, ...store.session.people.map((person) => calculateClosingBAC(store.eventsFor(person.id), person, now.value)));
   return barLine({ ...barCtx.value, bac: tableBAC, closing: true }, `${props.person.id}:closing:${pours.value}`);
 });
 
@@ -232,8 +233,8 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
         <p class="print mt-1.5 text-[8.5px]" style="letter-spacing: 0.2em; color: var(--print-soft)">
           OPEN LATE · POUR KIND · GO HOME SAFE
         </p>
-        <Doodle v-if="marks[0]" class="absolute -left-2 -top-4" :seed="`${person.id}:0`" :animate="false" v-bind="marks[0]" />
-        <Doodle v-if="marks[1]" class="absolute right-3 top-7" :seed="`${person.id}:1`" :animate="false" v-bind="marks[1]" />
+        <Doodle v-if="marks[0]" class="absolute -left-2 -top-4" :seed="`${person.id}:0`" :animate="!settledPaperSlots.has('0')" v-bind="marks[0]" />
+        <Doodle v-if="marks[1]" class="absolute right-3 top-7" :seed="`${person.id}:1`" :animate="!settledPaperSlots.has('1')" v-bind="marks[1]" />
       </header>
 
       <div class="rule mt-3"></div>
@@ -252,7 +253,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
         <section class="relative mt-3">
           <IdentityLine :person="person" :seat="seat" :pours="pours" />
           <p v-if="heldBy" class="pen mt-1 text-[18px]" style="opacity: 0.6">{{ heldBy }}</p>
-          <Doodle v-if="marks[2]" class="absolute -bottom-5 right-24" :seed="`${person.id}:2`" :animate="false" v-bind="marks[2]" />
+          <Doodle v-if="marks[2]" class="absolute -bottom-5 right-24" :seed="`${person.id}:2`" :animate="!settledPaperSlots.has('2')" v-bind="marks[2]" />
         </section>
 
         <div class="rule--double mt-4"></div>
@@ -263,7 +264,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
             <p class="pen pen--hard text-[54px] leading-[0.78]">{{ feeling.word }}</p>
             <FeelingUnderline :seed="`${person.id}:${feeling.state}`" :bac="underlineBac" :nudge="underlineNudge" class="mt-0.5" />
           </button>
-          <Doodle v-if="marks[3]" class="absolute -top-7 left-[6%]" :seed="`${person.id}:3`" :animate="false" v-bind="marks[3]" />
+          <Doodle v-if="marks[3]" class="absolute -top-7 left-[6%]" :seed="`${person.id}:3`" :animate="!settledPaperSlots.has('3')" v-bind="marks[3]" />
           <Doodle
             :key="stateDoodle.key"
             class="absolute right-1 top-0"
@@ -362,8 +363,8 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
         <!-- ── small print ───────────────────────────────────── -->
         <div class="relative mt-4">
           <Barcode :seed="`${store.session.id}:${person.id}`" />
-          <Doodle v-if="marks[5]" class="absolute left-0 top-1" :seed="`${person.id}:5`" :animate="false" v-bind="marks[5]" />
-          <Doodle v-if="marks[6]" class="absolute right-2 top-0" :seed="`${person.id}:6`" :animate="false" v-bind="marks[6]" />
+          <Doodle v-if="marks[5]" class="absolute left-0 top-1" :seed="`${person.id}:5`" :animate="!settledPaperSlots.has('5')" v-bind="marks[5]" />
+          <Doodle v-if="marks[6]" class="absolute right-2 top-0" :seed="`${person.id}:6`" :animate="!settledPaperSlots.has('6')" v-bind="marks[6]" />
         </div>
         <p class="print mt-3 text-center text-[8.5px] leading-[1.6]" style="letter-spacing: 0.16em; color: var(--print-soft)">
           ESTIMATES ONLY · NEVER A REASON TO DRIVE<br />
@@ -375,8 +376,8 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
           <button v-if="canLeave" type="button" class="pen text-[22px]" :style="tilt('leave', { r: 2, x: 4, y: 0 })" @click="leaveBar">
             {{ person.name?.trim() || "they" }} left the bar →
           </button>
-          <Doodle v-if="marks[4]" class="absolute -top-2 left-2" :seed="`${person.id}:4`" :animate="false" v-bind="marks[4]" />
-          <Doodle v-if="marks[7]" class="absolute -top-3 right-2" :seed="`${person.id}:7`" :animate="false" v-bind="marks[7]" />
+          <Doodle v-if="marks[4]" class="absolute -top-2 left-2" :seed="`${person.id}:4`" :animate="!settledPaperSlots.has('4')" v-bind="marks[4]" />
+          <Doodle v-if="marks[7]" class="absolute -top-3 right-2" :seed="`${person.id}:7`" :animate="!settledPaperSlots.has('7')" v-bind="marks[7]" />
         </div>
 
         <button

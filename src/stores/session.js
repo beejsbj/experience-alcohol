@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { computed, ref, toRaw, watch } from "vue";
 import { MAINTAINABLE_STATES, PERSON_COLORS } from "../constants";
-import { calculateBACAtTime } from "../utils/bac";
+import { calculateBACAtTime, calculateClosingBAC } from "../utils/bac";
 import { feelingFor } from "../utils/feelings";
 import { ledgerContext } from "../utils/doodles";
 import { pourCount } from "../utils/receipt";
@@ -24,18 +24,21 @@ const loadDeviceId = () => {
   return id;
 };
 
-const buildPerson = (id, overrides = {}, seat = 0) => ({
-  id,
-  name: "guest",
-  weight: 78,
-  gender: "male",
-  color: PERSON_COLORS[seat % PERSON_COLORS.length],
-  pinnedState: null,
-  paperInks: [],
-  active: true,
-  joinedAt: Date.now() + seat,
-  ...overrides,
-});
+const buildPerson = (id, overrides = {}, seat = 0) => {
+  const person = {
+    id,
+    name: "guest",
+    weight: 78,
+    gender: "male",
+    color: PERSON_COLORS[seat % PERSON_COLORS.length],
+    pinnedState: null,
+    paperInks: [],
+    active: true,
+    joinedAt: Date.now() + seat,
+    ...overrides,
+  };
+  return { ...person, paperName: person.needsIntro ? "" : person.name };
+};
 
 // A fresh face at the table: nothing assumed. The receipt asks for a name,
 // a body for the math and a weight before the first pour (`needsIntro`).
@@ -97,7 +100,7 @@ const migrateLegacy = (raw) => {
       ...createSession(people),
       events,
       customDrinks,
-      startedHour: timestamps.length ? new Date(Math.min(...timestamps)).getUTCHours() : new Date().getHours(),
+      startedHour: timestamps.length ? new Date(Math.min(...timestamps)).getHours() : new Date().getHours(),
       startedAt: timestamps.length
         ? new Date(Math.min(...timestamps)).toISOString()
         : new Date().toISOString(),
@@ -113,7 +116,25 @@ const loadSession = () => {
 
   try {
     const saved = JSON.parse(storage.getItem(STORAGE_KEY) || "null");
-    if (saved?.people?.length && Array.isArray(saved.events)) return saved;
+    if (saved?.people?.length && Array.isArray(saved.events)) {
+      // A local upgrade knows this device's local start hour. Capture it once;
+      // incoming legacy room snapshots still use the deterministic UTC fallback.
+      let upgraded = false;
+      if (saved.startedHour == null) {
+        saved.startedHour = new Date(saved.startedAt).getHours();
+        upgraded = true;
+      }
+      for (const person of saved.people) if (person.paperName == null) {
+        person.paperName = person.needsIntro ? "" : person.name;
+        upgraded = true;
+      }
+      if (upgraded) {
+        try { storage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch {
+          // A full/read-only store must not discard a valid loaded night.
+        }
+      }
+      return saved;
+    }
   } catch {
     // corrupt v2 payload — fall through to legacy/fresh
   }
@@ -190,6 +211,7 @@ export const useSessionStore = defineStore("session", () => {
       gender: gender === "female" ? "female" : "male",
       weight: Math.min(250, Math.max(30, Number(weight) || 78)),
       needsIntro: false,
+      ...(target.paperName ? {} : { paperName: name?.trim() || `guest ${seat || session.value.people.length}` }),
     });
     touch(target);
   }
@@ -266,7 +288,7 @@ export const useSessionStore = defineStore("session", () => {
           color: p.color,
           drinks: pourCount(events),
           peakBAC,
-          closingBAC: calculateBACAtTime(events, p, new Date(closedAt).getTime()),
+          closingBAC: calculateClosingBAC(events, p, new Date(closedAt).getTime()),
           peakState: feelingFor(peakBAC).state,
         };
       })
@@ -280,7 +302,12 @@ export const useSessionStore = defineStore("session", () => {
       summary,
     };
 
-    const carryOver = activePeople.value.map((p) => ({ ...p, pinnedState: null }));
+    const carryOver = activePeople.value.map((p) => ({
+      ...p,
+      pinnedState: null,
+      paperName: p.needsIntro ? "" : p.name,
+      paperInks: [...new Set(activePeople.value.filter((friend) => friend.id !== p.id && !friend.needsIntro).map((friend) => friend.color))].sort(),
+    }));
     session.value = createSession(carryOver);
     focusedPersonId.value = carryOver[0]?.id ?? 1;
   }
@@ -299,7 +326,7 @@ export const useSessionStore = defineStore("session", () => {
 
   // Swap in a whole session, e.g. the one a room already shares.
   function adoptSession(next) {
-    session.value = next;
+    session.value = { ...next, people: next.people.map((p) => ({ ...p, paperName: p.paperName ?? (p.needsIntro ? "" : p.name) })) };
     focusedPersonId.value = activePeople.value[0]?.id ?? null;
   }
 

@@ -104,3 +104,14 @@ export function projectBAC(
   }
   return points;
 }
+
+// Closing ends the live clock, so already-received pours cannot be left
+// waiting for a peer's future timestamp. Treat those pours as just received
+// for this safety estimate, preserving the immutable event timestamps.
+export function calculateClosingBAC(events, person, at = Date.now()) {
+  const received = events.map((event) => ({
+    ...event,
+    t: Math.min(event.t ?? new Date(event.timestamp).getTime(), at),
+  }));
+  return calculateBACAtTime(received, person, at);
+}

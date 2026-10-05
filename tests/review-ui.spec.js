@@ -148,6 +148,34 @@ describe("review UI regressions", () => {
     expect(state.stateDoodle.key).not.toBe("water");
   });
 
+  it("keeps printed initials while the name editor changes the guest", async () => {
+    const store = useSessionStore();
+    store.introduce(1, { name: "Sam Jones", weight: 78, gender: "male" });
+    for (let i = 0; i < 10; i++) store.logDrink(1, { type: "water", abv: 0, volume: 12 });
+    const state = mount(PersonReceipt, { person: store.person(1) }).setupState;
+    const before = JSON.parse(JSON.stringify(state.marks));
+    expect(Object.values(before).some((mark) => mark.name === "word:SJ")).toBe(true);
+    store.updatePerson(1, { name: "Robin Doe" });
+    await nextTick();
+    expect(state.marks).toEqual(before);
+  });
+
+  it("retains emergency closing guidance for already-received future peer pours", () => {
+    const store = useSessionStore();
+    store.introduce(1, { name: "Sam", weight: 78, gender: "male" });
+    const remote = JSON.parse(JSON.stringify(store.session));
+    const timestamp = new Date(clock.now.value + 60000).toISOString();
+    remote.events = Array.from({ length: 20 }, (_, i) => ({ id: `future-${i}`, personId: 1, type: "shot", abv: 0.4, volume: 1.5, timestamp }));
+    store.mergeRemote(remote);
+    const state = mount(PersonReceipt, { person: store.person(1) }).setupState;
+    expect(state.bac).toBe(0);
+    expect(state.barClosing.topic).toBe("getHelp");
+    expect(store.session.events.every((event) => event.timestamp === timestamp)).toBe(true);
+    store.closeTab();
+    expect(store.lastTab.summary[0].closingBAC).toBeGreaterThan(0.35);
+    expect(mount(CloseTab).setupState.signOff.topic).toBe("getHelp");
+  });
+
   it("keys the coming-down topic when exact BAC crosses 0.02", async () => {
     const store = useSessionStore();
     store.introduce(1, { name: "Sam", weight: 78, gender: "male" });
