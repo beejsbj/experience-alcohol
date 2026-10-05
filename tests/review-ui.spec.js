@@ -148,6 +148,17 @@ describe("review UI regressions", () => {
     expect(state.stateDoodle.key).not.toBe("water");
   });
 
+  it("animates a newly received pour even when the peer clock is behind", async () => {
+    const store = useSessionStore();
+    const state = mount(PersonReceipt, { person: store.person(1) }).setupState;
+    const remote = JSON.parse(JSON.stringify(store.session));
+    remote.events.push({ id: "peer-pour", personId: 1, type: "beer", abv: 0.05, volume: 12, timestamp: new Date(Date.now() - 60000).toISOString() });
+    expect(store.mergeRemote(remote)).toBe(true);
+    await nextTick();
+    expect(state.lines.find((line) => line.id === "peer-pour").fresh).toBe(true);
+    expect(mount(PersonReceipt, { person: store.person(1) }).setupState.lines[0].fresh).toBe(false);
+  });
+
   it("keeps printed initials while the name editor changes the guest", async () => {
     const store = useSessionStore();
     store.introduce(1, { name: "Sam Jones", weight: 78, gender: "male" });

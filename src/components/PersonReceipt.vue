@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useSessionStore } from "../stores/session";
 import { useRoomStore } from "../stores/room";
 import { useLiveNow } from "../composables/useLiveNow";
@@ -67,10 +67,6 @@ const pourNote = computed(() => {
 
 // ── Ledger ────────────────────────────────────────────────────────────────
 const initialEventIds = new Set(events.value.map((event) => event.id));
-const mountedAt = ref(Infinity);
-onMounted(() => {
-  mountedAt.value = Date.now();
-});
 
 const lines = computed(() =>
   events.value.map((event) => {
@@ -85,7 +81,7 @@ const lines = computed(() =>
       delta: delta > 0 ? `+${delta.toFixed(3).slice(1)}` : "—",
       isCustom: isCustomDrink(event),
       // printed since this paper was picked up: feed it out of the head
-      fresh: !initialEventIds.has(event.id) && new Date(event.timestamp).getTime() >= mountedAt.value,
+      fresh: !initialEventIds.has(event.id),
     };
   })
 );
