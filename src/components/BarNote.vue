@@ -65,7 +65,7 @@ const tilt = computed(() => ((scatterRand(`marker-tilt:${props.seed}`)() * 2 - 1
   >
     <span class="marker__line">
       <template v-for="(w, wi) in words" :key="wi">
-        <span class="inline-block whitespace-nowrap" aria-hidden="true">
+        <span class="marker__word" aria-hidden="true">
           <span v-for="(c, ci) in w.chars" :key="ci" class="marker__char" :style="c.style">{{ c.char }}</span>
         </span>
         <span v-if="wi < words.length - 1" aria-hidden="true">{{ " " }}</span>
@@ -78,6 +78,12 @@ const tilt = computed(() => ((scatterRand(`marker-tilt:${props.seed}`)() * 2 - 1
 </template>
 
 <style scoped>
+.marker__word {
+  display: inline-block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .marker__line {
   display: block;
   max-width: 24ch;

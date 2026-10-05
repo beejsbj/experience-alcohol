@@ -1,10 +1,11 @@
 import { defineStore } from "pinia";
 import { computed, ref, toRaw, watch } from "vue";
 import { MAINTAINABLE_STATES, PERSON_COLORS } from "../constants";
-import { calculateBACAtTime } from "../utils/bac";
+import { calculateBACAtTime, calculateClosingBAC } from "../utils/bac";
 import { feelingFor } from "../utils/feelings";
+import { ledgerContext } from "../utils/doodles";
 import { pourCount } from "../utils/receipt";
-import { mergeSessions, sessionFingerprint } from "../utils/roomMerge";
+import { capturePaperMetadata, mergeSessions, sessionFingerprint } from "../utils/roomMerge";
 
 const STORAGE_KEY = "experience-alcohol:session:v2";
 const LEGACY_KEY = "experience-alcohol:fab-layout:v1";
@@ -23,17 +24,21 @@ const loadDeviceId = () => {
   return id;
 };
 
-const buildPerson = (id, overrides = {}, seat = 0) => ({
-  id,
-  name: "guest",
-  weight: 78,
-  gender: "male",
-  color: PERSON_COLORS[seat % PERSON_COLORS.length],
-  pinnedState: null,
-  active: true,
-  joinedAt: Date.now() + seat,
-  ...overrides,
-});
+const buildPerson = (id, overrides = {}, seat = 0) => {
+  const person = {
+    id,
+    name: "guest",
+    weight: 78,
+    gender: "male",
+    color: PERSON_COLORS[seat % PERSON_COLORS.length],
+    pinnedState: null,
+    paperInks: [],
+    active: true,
+    joinedAt: Date.now() + seat,
+    ...overrides,
+  };
+  return { ...person, paperName: person.needsIntro ? "" : person.name, paperNameRev: { t: person.joinedAt, by: "" }, paperNameBackfillRev: undefined, paperInksBackfill: undefined };
+};
 
 // A fresh face at the table: nothing assumed. The receipt asks for a name,
 // a body for the math and a weight before the first pour (`needsIntro`).
@@ -49,6 +54,7 @@ const createSession = (people = null) => ({
   id: uid(),
   nickname: "tonight",
   startedAt: new Date().toISOString(),
+  startedHour: new Date().getHours(),
   people: people ?? [buildPerson(1, { name: "", needsIntro: true, color: pickPen() })],
   events: [],
   customDrinks: [],
@@ -91,9 +97,10 @@ const migrateLegacy = (raw) => {
     const timestamps = events.map((event) => new Date(event.timestamp).getTime());
 
     return {
-      ...createSession(people),
+      ...createSession(people.map((p) => capturePaperMetadata({ ...p, paperInks: undefined }, people))),
       events,
       customDrinks,
+      startedHour: timestamps.length ? new Date(Math.min(...timestamps)).getHours() : new Date().getHours(),
       startedAt: timestamps.length
         ? new Date(Math.min(...timestamps)).toISOString()
         : new Date().toISOString(),
@@ -109,7 +116,26 @@ const loadSession = () => {
 
   try {
     const saved = JSON.parse(storage.getItem(STORAGE_KEY) || "null");
-    if (saved?.people?.length && Array.isArray(saved.events)) return saved;
+    if (saved?.people?.length && Array.isArray(saved.events)) {
+      // A local upgrade knows this device's local start hour. Capture it once;
+      // incoming legacy room snapshots still use the deterministic UTC fallback.
+      let upgraded = false;
+      if (saved.startedHour == null) {
+        saved.startedHour = new Date(saved.startedAt).getHours();
+        upgraded = true;
+      }
+      saved.people = saved.people.map((person) => {
+        const normalized = capturePaperMetadata(person, saved.people);
+        if (normalized !== person) upgraded = true;
+        return normalized;
+      });
+      if (upgraded) {
+        try { storage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch {
+          // A full/read-only store must not discard a valid loaded night.
+        }
+      }
+      return saved;
+    }
   } catch {
     // corrupt v2 payload — fall through to legacy/fresh
   }
@@ -118,7 +144,12 @@ const loadSession = () => {
   if (legacyRaw) {
     const migrated = migrateLegacy(legacyRaw);
     if (migrated) {
-      storage.removeItem(LEGACY_KEY);
+      try {
+        storage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+        storage.removeItem(LEGACY_KEY);
+      } catch {
+        // Keep the recoverable v1 source if the converted tab cannot be saved.
+      }
       return migrated;
     }
   }
@@ -130,6 +161,11 @@ export const useSessionStore = defineStore("session", () => {
   const session = ref(loadSession());
   const focusedPersonId = ref(session.value.people.find((p) => p.active)?.id ?? 1);
   const lastTab = ref(null);
+  // Transient reactions use this browser's receipt time, never a peer's clock.
+  // Keep this local: stored/replicated events and historical BAC stay immutable.
+  const lastReceipts = ref(new Map());
+  const latestReceiptFor = (personId) => lastReceipts.value.get(personId) ?? null;
+  const observeReceipt = (event) => lastReceipts.value.set(event.personId, { eventId: event.id, at: Date.now() });
 
   const activePeople = computed(() => session.value.people.filter((p) => p.active));
 
@@ -160,10 +196,11 @@ export const useSessionStore = defineStore("session", () => {
     const id = `p-${uid()}`;
     const added = buildPerson(
       id,
-      { needsIntro: true, color: pickPen(session.value.people), ...overrides },
+      { needsIntro: true, color: pickPen(session.value.people), paperInks: [...new Set(activePeople.value.filter((p) => !p.needsIntro).map((p) => p.color))].sort(), ...overrides },
       session.value.people.length
     );
     touch(added);
+    added.paperNameRev = { ...added.rev };
     session.value.people.push(added);
     focusedPersonId.value = id;
     return id;
@@ -181,13 +218,16 @@ export const useSessionStore = defineStore("session", () => {
     const target = person(id);
     if (!target) return;
     const seat = session.value.people.filter((p) => p.active).findIndex((p) => p.id === id) + 1;
+    const capturesName = !target.paperName;
     Object.assign(target, {
       name: name?.trim() || `guest ${seat || session.value.people.length}`,
       gender: gender === "female" ? "female" : "male",
       weight: Math.min(250, Math.max(30, Number(weight) || 78)),
       needsIntro: false,
+      ...(target.paperName ? {} : { paperName: name?.trim() || `guest ${seat || session.value.people.length}`, paperNameBackfillRev: undefined }),
     });
     touch(target);
+    if (capturesName) target.paperNameRev = { ...target.rev };
   }
 
   function deactivatePerson(id) {
@@ -214,15 +254,26 @@ export const useSessionStore = defineStore("session", () => {
   }
 
   function logDrink(personId, drink) {
-    if (!person(personId)) return;
-    session.value.events.push({
+    const target = person(personId);
+    if (!target) return;
+    const event = {
       id: uid(),
       personId,
       type: drink.type,
+      isCustom: Boolean(drink.id),
+      ...(drink.id ? { drinkId: drink.id } : {}),
       abv: drink.abv ?? drink.alcoholContent,
       volume: drink.volume,
       timestamp: new Date().toISOString(),
+    };
+    const friends = activePeople.value.filter((p) => p.id !== personId && !p.needsIntro);
+    event.ledgerContext = ledgerContext(eventsFor(personId), event, target, {
+      inks: [...new Set(friends.map((p) => p.color))].sort(),
+      ownInk: target.color,
+      startedAt: session.value.startedAt,
     });
+    session.value.events.push(event);
+    observeReceipt(event);
   }
 
   function addCustomDrink(drink) {
@@ -252,6 +303,7 @@ export const useSessionStore = defineStore("session", () => {
           color: p.color,
           drinks: pourCount(events),
           peakBAC,
+          closingBAC: calculateClosingBAC(events, p, new Date(closedAt).getTime()),
           peakState: feelingFor(peakBAC).state,
         };
       })
@@ -265,8 +317,17 @@ export const useSessionStore = defineStore("session", () => {
       summary,
     };
 
-    const carryOver = activePeople.value.map((p) => ({ ...p, pinnedState: null }));
+    const carryOver = activePeople.value.map((p) => ({
+      ...p,
+      pinnedState: null,
+      paperName: p.needsIntro ? "" : p.name,
+      paperNameRev: { t: new Date(closedAt).getTime(), by: deviceId },
+      paperNameBackfillRev: undefined,
+      paperInksBackfill: undefined,
+      paperInks: [...new Set(activePeople.value.filter((friend) => friend.id !== p.id && !friend.needsIntro).map((friend) => friend.color))].sort(),
+    }));
     session.value = createSession(carryOver);
+    lastReceipts.value.clear();
     focusedPersonId.value = carryOver[0]?.id ?? 1;
   }
 
@@ -277,6 +338,8 @@ export const useSessionStore = defineStore("session", () => {
     const before = sessionFingerprint(session.value);
     const merged = mergeSessions(session.value, remote);
     if (sessionFingerprint(merged) === before) return false;
+    const knownEvents = new Set(session.value.events.map((event) => event.id));
+    for (const event of merged.events) if (!knownEvents.has(event.id)) observeReceipt(event);
     session.value = merged;
     if (!person(focusedPersonId.value)?.active) focusedPersonId.value = activePeople.value[0]?.id;
     return true;
@@ -284,7 +347,8 @@ export const useSessionStore = defineStore("session", () => {
 
   // Swap in a whole session, e.g. the one a room already shares.
   function adoptSession(next) {
-    session.value = next;
+    session.value = { ...next, people: next.people.map((p) => capturePaperMetadata(p, next.people)) };
+    lastReceipts.value.clear();
     focusedPersonId.value = activePeople.value[0]?.id ?? null;
   }
 
@@ -306,6 +370,7 @@ export const useSessionStore = defineStore("session", () => {
     session,
     focusedPersonId,
     lastTab,
+    latestReceiptFor,
     activePeople,
     person,
     eventsByPerson,

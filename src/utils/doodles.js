@@ -2,6 +2,7 @@
 // seed always draws the same doodle the same way, in the same place.
 
 import { scatterRand } from "./scatter";
+import { isCustomDrink } from "./drinkIdentity";
 import { calculateBACAtTime } from "./bac";
 
 const TAU = Math.PI * 2;
@@ -525,7 +526,6 @@ export function friendMarks(personId, tablePours, inks, ownInk, slots, about = {
   const names = [
     ...DECOR_SHAPES,
     ...DECOR_WORDS.map(w),
-    ...(initials.length >= 2 ? [w(initials), w(initials)] : []),
     ...(h != null && (h >= 23 || h < 4) ? ["moon", w("zzz")] : []),
     ...(h != null && h >= 5 && h < 17 ? ["sun", "coffee"] : []),
   ];
@@ -533,19 +533,20 @@ export function friendMarks(personId, tablePours, inks, ownInk, slots, about = {
     const k = Math.floor(rand() * (i + 1));
     [names[i], names[k]] = [names[k], names[i]];
   }
-  // initials went in twice to be likelier; only ever draw them once
-  const seen = new Set();
-  const unique = names.filter((n) => !seen.has(n) && seen.add(n));
-  names.length = 0;
-  names.push(...unique);
+  const unique = [...new Set(names)];
+  names.splice(0, names.length, ...unique);
   // a couple from the moment the paper's torn off, more as the table drinks
   const count = Math.min(slots, 2 + Math.floor(tablePours * 0.7));
   const pens = inks.length ? inks : [ownInk];
-  return order.slice(0, count).map((slot, n) => {
+  // A dedicated later slot can add initials after introduction. Reserve it
+  // even while blank; naming the guest must not reshuffle existing marks.
+  const initialsIndex = slots > 2 ? slots - 1 : -1;
+  return order.slice(0, count).flatMap((slot, n) => {
+    if (n === initialsIndex && !initials) return [];
     const r = scatterRand(`mark:${personId}:${slot}`);
     return {
       slot,
-      name: names[slot % names.length],
+      name: n === initialsIndex ? w(initials) : names[slot % names.length],
       ink: pens[Math.floor(r() * pens.length)],
       rot: (r() * 2 - 1) * 18,
       size: 22 + Math.round(r() * 12),
@@ -561,33 +562,47 @@ export function friendMarks(personId, tablePours, inks, ownInk, slots, about = {
 // never changes once it's been drawn, however long the ledger grows.
 
 const DRINK_POOL = { beer: "beer", wine: "wine", cocktail: "cocktail", shot: "shot", water: "water" };
-const HOUR = 3600000;
+// Capture at the originating pour, before the event enters the grow-only log.
+// Remote snapshots carry these facts unchanged rather than recomputing history.
+export function ledgerContext(events, event, person, opts = {}) {
+  const t = event.t ?? new Date(event.timestamp).getTime();
+  const previous = events.filter((e) => (e.t ?? new Date(e.timestamp).getTime()) <= t);
+  const last = previous.at(-1);
+  const start = opts.startedAt == null ? null : new Date(opts.startedAt).getTime();
+  const pens = opts.inks?.length ? opts.inks : [opts.ownInk ?? "var(--pen)"];
+  const rand = scatterRand(`ledger-ink:${event.personId}:${event.id}`);
+  return {
+    index: previous.length,
+    pours: previous.filter((e) => (e.abv ?? e.alcoholContent ?? 0) > 0).length + ((event.abv ?? event.alcoholContent ?? 0) > 0 ? 1 : 0),
+    after: calculateBACAtTime([...previous, event], person, t + 1000),
+    gap: last ? (t - (last.t ?? new Date(last.timestamp).getTime())) / 60000 : 0,
+    hour: new Date(t).getHours(),
+    first: !previous.length && start != null && t - start >= 0 && t - start < 10 * 60000,
+    ink: pens[Math.floor(rand() * pens.length)],
+  };
+}
 
 /**
  * @param {string} personId
  * @param {object[]} events   this person's ledger, oldest first ({ id, type, abv, volume, t|timestamp })
- * @param {object} person     { weight, gender }
- * @param {{ inks?: string[], ownInk?: string, startedAt?: number|string, defaults?: Set<string> }} opts
+ * @param {object} person     retained for existing callers; context is frozen on events
+ * @param {{ ownInk?: string }} opts
  * @returns {(null | { name, ink, rot, size })[]} one entry per event
  */
 export function ledgerMarks(personId, events, person, opts = {}) {
-  const pens = opts.inks?.length ? opts.inks : [opts.ownInk ?? "var(--pen)"];
-  const start = opts.startedAt ? new Date(opts.startedAt).getTime() : null;
-  const defaults = opts.defaults ?? new Set(Object.keys(DRINK_POOL));
-  let pours = 0;
-  let prevT = null;
-  return events.map((e, i) => {
+  return events.map((e) => {
     const t = e.t ?? new Date(e.timestamp).getTime();
     const soft = !((e.abv ?? e.alcoholContent ?? 0) > 0);
-    if (!soft) pours += 1;
+    // Old events have no historical snapshot. Use event-only facts so late
+    // merges, weight edits and roster changes cannot alter their marks.
+    const context = e.ledgerContext ?? {};
+    const pours = context.pours ?? 0;
     const rand = scatterRand(`ledger:${personId}:${e.id}`);
-    const chance = Math.min(0.55, 0.38 + i * 0.015);
-    const gap = prevT != null ? (t - prevT) / 60000 : 0;
-    prevT = t;
+    const chance = Math.min(0.55, 0.38 + (context.index ?? 0) * 0.015);
     if (rand() > chance) return null;
 
     const pool = [];
-    const custom = !defaults.has(e.type);
+    const custom = isCustomDrink(e);
     pool.push(...LEDGER_POOLS[soft ? "water" : custom ? "house" : DRINK_POOL[e.type] ?? "house"]);
     if (!soft) {
       if (pours === 3) pool.push(...LEDGER_POOLS.third, ...LEDGER_POOLS.third);
@@ -595,18 +610,18 @@ export function ledgerMarks(personId, events, person, opts = {}) {
       else if (pours === 7) pool.push(...LEDGER_POOLS.seventh, ...LEDGER_POOLS.seventh);
       else if (pours === 10) pool.push(...LEDGER_POOLS.tenth, ...LEDGER_POOLS.tenth);
       else if (pours > 10) pool.push(...LEDGER_POOLS.many);
-      const after = calculateBACAtTime(events.slice(0, i + 1), person, t + 1000);
+      const after = context.after ?? 0;
       if (after >= 0.16) pool.push(...LEDGER_POOLS.wasted, ...LEDGER_POOLS.wasted);
       else if (after >= 0.1) pool.push(...LEDGER_POOLS.loose);
     }
-    const hour = new Date(t).getHours();
+    const hour = context.hour ?? new Date(t).getUTCHours();
     if (hour >= 1 && hour < 5) pool.push(...LEDGER_POOLS.late);
-    if (i > 0 && gap >= 45) pool.push(...LEDGER_POOLS.gap);
-    if (i === 0 && start != null && t - start < 10 * 60000) pool.push(...LEDGER_POOLS.first);
+    if ((context.gap ?? 0) >= 45) pool.push(...LEDGER_POOLS.gap);
+    if (context.first) pool.push(...LEDGER_POOLS.first);
 
     return {
       name: pool[Math.floor(rand() * pool.length)],
-      ink: pens[Math.floor(rand() * pens.length)],
+      ink: context.ink ?? opts.ownInk ?? "var(--pen)",
       rot: (rand() * 2 - 1) * 14,
       size: 15 + Math.round(rand() * 3),
     };
@@ -640,7 +655,7 @@ export function stateMark(ctx, seed) {
   let names;
   let key;
   if (ctx.verdict === "CUT OFF") [names, key] = [["face_x"], "cutoff"];
-  else if (ctx.lastType === "water" && since < 12) [names, key] = [["halo", "drop"], "water"];
+  else if ((ctx.lastIsSoft ?? (ctx.lastType === "water" && !ctx.lastIsCustom)) && since < 12) [names, key] = [["halo", "drop"], "water"];
   else if (ctx.pinned && ctx.verdict === "ON PACE" && (ctx.pours ?? 0) >= 2) [names, key] = [["anchor", "tortoise"], "held"];
   else if (since >= 45 && (ctx.pours ?? 0) > 0 && ctx.state !== "Sober") [names, key] = [["parachute", "snail"], "down"];
   else [names, key] = [STATE_FACE[ctx.state] ?? ["face_neutral"], ctx.state];

@@ -36,7 +36,7 @@ describe("friendMarks", () => {
     const early = friendMarks("p1", 3, inks, "#000", 8);
     const late = friendMarks("p1", 30, inks, "#000", 8);
     expect(early.length).toBeGreaterThan(0);
-    expect(late).toHaveLength(8);
+    expect(late).toHaveLength(7);
     // marks already on the paper stay put as more arrive
     for (const m of early) expect(late.find((l) => l.slot === m.slot)).toMatchObject({ name: m.name, ink: m.ink });
   });

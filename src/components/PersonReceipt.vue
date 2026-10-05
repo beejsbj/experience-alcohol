@@ -1,15 +1,16 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useSessionStore } from "../stores/session";
 import { useRoomStore } from "../stores/room";
 import { useLiveNow } from "../composables/useLiveNow";
-import { calculateBACAtTime, calculateSingleDrinkBAC } from "../utils/bac";
+import { calculateBACAtTime, calculateSingleDrinkBAC, calculateClosingBAC, isSoft } from "../utils/bac";
 import { CUTOFF_BAC, feelingFor, nextPourMinutes, stampFor } from "../utils/feelings";
 import { clock, peakBAC, pourCount, standardDrinks, tabNumbers } from "../utils/receipt";
 import { friendMarks, friendNote, ledgerMarks, stateMark } from "../utils/doodles";
+import { isCustomDrink } from "../utils/drinkIdentity";
 import { barLine } from "../utils/barkeep";
 import { DRINKS } from "../constants";
-import { scatter, scatterRand } from "../utils/scatter";
+import { scatter } from "../utils/scatter";
 import { triggerHaptic } from "../utils/haptics";
 import ReceiptPaper from "./ReceiptPaper.vue";
 import IdentityLine from "./IdentityLine.vue";
@@ -65,11 +66,7 @@ const pourNote = computed(() => {
 });
 
 // ── Ledger ────────────────────────────────────────────────────────────────
-const DEFAULT_TYPES = new Set(DRINKS.map((d) => d.type));
-const mountedAt = ref(Infinity);
-onMounted(() => {
-  mountedAt.value = Date.now();
-});
+const initialEventIds = new Set(events.value.map((event) => event.id));
 
 const lines = computed(() =>
   events.value.map((event) => {
@@ -82,9 +79,9 @@ const lines = computed(() =>
       ml: `${Math.round(event.volume * 29.57)}ML`,
       abv: `${Number((abv * 100).toFixed(1))}%`,
       delta: delta > 0 ? `+${delta.toFixed(3).slice(1)}` : "—",
-      isCustom: !DEFAULT_TYPES.has(event.type),
+      isCustom: isCustomDrink(event),
       // printed since this paper was picked up: feed it out of the head
-      fresh: new Date(event.timestamp).getTime() > mountedAt.value - 1500,
+      fresh: !initialEventIds.has(event.id),
     };
   })
 );
@@ -113,63 +110,62 @@ const totals = computed(() => ({
 // ── The table writes on it ────────────────────────────────────────────────
 const friends = computed(() => store.activePeople.filter((p) => p.id !== props.person.id && !p.needsIntro));
 const SLOTS = 8;
-const inks = computed(() => [...new Set(friends.value.map((f) => f.color))]);
-const startHour = computed(() => new Date(store.session.startedAt).getHours());
+const startHour = computed(() => store.session.startedHour ?? new Date(store.session.startedAt).getUTCHours());
 const marks = computed(() => {
-  const placed = friendMarks(props.person.id, store.session.events.length, inks.value, props.person.color, SLOTS, {
-    name: props.person.name,
+  const placed = friendMarks(props.person.id, store.session.events.length, props.person.paperInks ?? [], props.person.color, SLOTS, {
+    name: props.person.paperName ?? props.person.name,
     startHour: startHour.value,
   });
   return Object.fromEntries(placed.map((m) => [m.slot, { name: m.name, ink: m.ink, rot: m.rot, size: m.size, delay: 200 + m.n * 140 }]));
 });
+const settledPaperSlots = new Set(Object.keys(marks.value).filter((slot) => !props.person.needsIntro || slot === "0" || slot === "1"));
 // Scribbles down the ledger: each line's is settled the moment it's printed.
 const ledgerDoodles = computed(() => {
   const placed = ledgerMarks(props.person.id, events.value, props.person, {
-    inks: inks.value,
     ownInk: props.person.color,
-    startedAt: store.session.startedAt,
-    defaults: DEFAULT_TYPES,
   });
   return Object.fromEntries(events.value.map((e, i) => [e.id, placed[i]]).filter(([, m]) => m));
 });
 const note = computed(() => {
-  if (!events.value.length) return null;
+  if (!events.value.length || !friends.value.length) return null;
   const n = friendNote(props.person.id, verdict.value, friends.value.map((f) => ({ name: f.name, color: f.color })));
-  return { text: n.text, from: n.from?.name?.trim() || "the bar", ink: n.from?.color ?? props.person.color };
+  return { text: n.text, from: n.from.name?.trim() || "a friend", ink: n.from.color };
 });
 
 // ── The bar has a word ────────────────────────────────────────────────────
 // Everything it reads is bucketed first, so a new line is written at a real
 // moment (a pour, a verdict, a new hour), never on the second-hand tick.
-const lastEvent = computed(() => events.value.at(-1) ?? null);
+const lastReceipt = computed(() => store.latestReceiptFor(props.person.id));
+const lastEvent = computed(() => events.value.find((event) => event.id === lastReceipt.value?.eventId) ?? events.value.at(-1) ?? null);
 const sinceLastBucket = computed(() => {
   if (!lastEvent.value) return Infinity;
-  const m = (now.value - lastEvent.value.t) / 60000;
+  const m = (now.value - (lastReceipt.value?.at ?? lastEvent.value.t)) / 60000;
   return m < 12 ? 0 : m < 45 ? 15 : 60;
 });
 const hour = computed(() => new Date(now.value).getHours());
-const bacBucket = computed(() => Math.round(bac.value * 100) / 100);
 const waters = computed(() => events.value.length - pours.value);
 const mixed = computed(() => [...new Set(events.value.filter((e) => (e.abv ?? e.alcoholContent) > 0).map((e) => e.type))].join(","));
 const barCtx = computed(() => ({
   pours: pours.value,
   waters: waters.value,
   lastType: lastEvent.value?.type,
-  lastIsCustom: lastEvent.value ? !DEFAULT_TYPES.has(lastEvent.value.type) : false,
+  lastIsCustom: lastEvent.value ? isCustomDrink(lastEvent.value) : false,
+  lastIsSoft: lastEvent.value ? isSoft(lastEvent.value) : false,
   sinceLastMin: sinceLastBucket.value,
   types: mixed.value ? mixed.value.split(",") : [],
   verdict: verdict.value,
   state: feeling.value.state,
-  bac: bacBucket.value,
+  bac: bac.value,
   pinned: props.person.pinnedState,
   falling: sinceLastBucket.value >= 45,
+  comingDown: sinceLastBucket.value >= 45 && bac.value > 0.02,
   hour: hour.value,
   name: props.person.name,
   tab: numbers.value.tab,
 }));
 const beat = computed(() => {
   const c = barCtx.value;
-  return `${props.person.id}:${c.pours}:${c.waters}:${c.verdict}:${c.state}:${c.hour}:${c.sinceLastMin}:${c.pinned ?? ""}:${c.lastType ?? ""}`;
+  return `${props.person.id}:${c.pours}:${c.waters}:${c.verdict}:${c.state}:${c.hour}:${c.sinceLastMin}:${c.pinned ?? ""}:${c.lastType ?? ""}:${c.comingDown}`;
 });
 const bar = computed(() => barLine(barCtx.value, beat.value));
 
@@ -177,12 +173,15 @@ const bar = computed(() => barLine(barCtx.value, beat.value));
 // redrawn (keyed) when the level, or the shape of the night, changes.
 const stateDoodle = computed(() => {
   const c = barCtx.value;
-  const m = stateMark({ state: c.state, verdict: c.verdict, pinned: c.pinned, sinceLastMin: c.sinceLastMin, lastType: c.lastType, pours: c.pours }, String(props.person.id));
-  const pens = inks.value.length ? inks.value : [props.person.color];
-  const ink = pens[Math.floor(scatterRand(`state-ink:${props.person.id}:${m.key}`)() * pens.length)];
+  const m = stateMark({ state: c.state, verdict: c.verdict, pinned: c.pinned, sinceLastMin: c.sinceLastMin, lastType: c.lastType, lastIsSoft: c.lastIsSoft, lastIsCustom: c.lastIsCustom, pours: c.pours }, String(props.person.id));
+  const ink = props.person.color;
   return { ...m, ink };
 });
-const barClosing = computed(() => barLine({ ...barCtx.value, closing: true }, `${props.person.id}:closing:${pours.value}`));
+const barClosing = computed(() => {
+  // Closing settles the whole table; a different receipt may need help.
+  const tableBAC = Math.max(bac.value, ...store.session.people.map((person) => calculateClosingBAC(store.eventsFor(person.id), person, now.value)));
+  return barLine({ ...barCtx.value, bac: tableBAC, closing: true }, `${props.person.id}:closing:${pours.value}`);
+});
 
 // Tap the feeling to have another go at underlining it.
 const underlineNudge = ref(0);
@@ -231,8 +230,8 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
         <p class="print mt-1.5 text-[8.5px]" style="letter-spacing: 0.2em; color: var(--print-soft)">
           OPEN LATE · POUR KIND · GO HOME SAFE
         </p>
-        <Doodle v-if="marks[0]" class="absolute -left-2 -top-4" :seed="`${person.id}:0`" v-bind="marks[0]" />
-        <Doodle v-if="marks[1]" class="absolute right-3 top-7" :seed="`${person.id}:1`" v-bind="marks[1]" />
+        <Doodle v-if="marks[0]" class="absolute -left-2 -top-4" :seed="`${person.id}:0`" :animate="!settledPaperSlots.has('0')" v-bind="marks[0]" />
+        <Doodle v-if="marks[1]" class="absolute right-3 top-7" :seed="`${person.id}:1`" :animate="!settledPaperSlots.has('1')" v-bind="marks[1]" />
       </header>
 
       <div class="rule mt-3"></div>
@@ -251,7 +250,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
         <section class="relative mt-3">
           <IdentityLine :person="person" :seat="seat" :pours="pours" />
           <p v-if="heldBy" class="pen mt-1 text-[18px]" style="opacity: 0.6">{{ heldBy }}</p>
-          <Doodle v-if="marks[2]" class="absolute -bottom-5 right-24" :seed="`${person.id}:2`" v-bind="marks[2]" />
+          <Doodle v-if="marks[2]" class="absolute -bottom-5 right-24" :seed="`${person.id}:2`" :animate="!settledPaperSlots.has('2')" v-bind="marks[2]" />
         </section>
 
         <div class="rule--double mt-4"></div>
@@ -262,7 +261,7 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
             <p class="pen pen--hard text-[54px] leading-[0.78]">{{ feeling.word }}</p>
             <FeelingUnderline :seed="`${person.id}:${feeling.state}`" :bac="underlineBac" :nudge="underlineNudge" class="mt-0.5" />
           </button>
-          <Doodle v-if="marks[3]" class="absolute -top-7 left-[6%]" :seed="`${person.id}:3`" v-bind="marks[3]" />
+          <Doodle v-if="marks[3]" class="absolute -top-7 left-[6%]" :seed="`${person.id}:3`" :animate="!settledPaperSlots.has('3')" v-bind="marks[3]" />
           <Doodle
             :key="stateDoodle.key"
             class="absolute right-1 top-0"
@@ -274,8 +273,8 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
           />
 
           <div class="relative mt-3 flex items-end justify-between gap-2">
-            <div class="flex items-end gap-1.5">
-              <span class="dots text-[46px]">{{ bacParts[0] }}<span class="dot-point"></span>{{ bacParts[1] }}</span>
+            <div class="flex shrink-0 items-end gap-1.5">
+              <span class="dots whitespace-nowrap text-[clamp(28px,calc(25vw-52px),46px)]">{{ bacParts[0] }}<span class="dot-point"></span>{{ bacParts[1] }}</span>
               <span class="print mb-0.5 text-[9px] leading-[1.25]" style="letter-spacing: 0.14em; color: var(--print-soft)">%<br />EST.</span>
             </div>
             <div class="mb-1 mr-1">
@@ -314,15 +313,16 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
             :style="{ gridTemplateColumns: LEDGER_COLS, animation: line.fresh ? 'print-line 520ms steps(12) backwards' : undefined }"
           >
             <span style="color: var(--print-soft)">{{ line.time }}</span>
-            <span class="truncate">
-              {{ line.type }}<span v-if="line.isCustom" class="pen ml-1 text-[15px]">✶</span>
+            <span class="relative flex min-w-0 items-baseline gap-1">
+              <span class="truncate">{{ line.type }}</span><span v-if="line.isCustom" class="pen shrink-0 text-[15px]">✶</span>
               <!-- hung off the line so a scribble never changes the print pitch -->
-              <span v-if="ledgerDoodles[line.id]" class="relative inline-block h-0 w-0 overflow-visible align-baseline">
+              <span v-if="ledgerDoodles[line.id]" class="relative inline-block h-0 shrink-0 overflow-visible align-baseline">
                 <Doodle
-                  class="absolute left-2 -top-[14px]"
+                  class="relative -top-[2px]"
                   :seed="`ledger:${line.id}`"
                   v-bind="ledgerDoodles[line.id]"
                   :delay="line.fresh ? 700 : 0"
+                  :animate="line.fresh"
                 />
               </span>
             </span>
@@ -360,8 +360,8 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
         <!-- ── small print ───────────────────────────────────── -->
         <div class="relative mt-4">
           <Barcode :seed="`${store.session.id}:${person.id}`" />
-          <Doodle v-if="marks[5]" class="absolute left-0 top-1" :seed="`${person.id}:5`" v-bind="marks[5]" />
-          <Doodle v-if="marks[6]" class="absolute right-2 top-0" :seed="`${person.id}:6`" v-bind="marks[6]" />
+          <Doodle v-if="marks[5]" class="absolute left-0 top-1" :seed="`${person.id}:5`" :animate="!settledPaperSlots.has('5')" v-bind="marks[5]" />
+          <Doodle v-if="marks[6]" class="absolute right-2 top-0" :seed="`${person.id}:6`" :animate="!settledPaperSlots.has('6')" v-bind="marks[6]" />
         </div>
         <p class="print mt-3 text-center text-[8.5px] leading-[1.6]" style="letter-spacing: 0.16em; color: var(--print-soft)">
           ESTIMATES ONLY · NEVER A REASON TO DRIVE<br />
@@ -373,8 +373,8 @@ const feelingTilt = computed(() => tilt("feeling", { r: 2.2, x: 4, y: 1 }));
           <button v-if="canLeave" type="button" class="pen text-[22px]" :style="tilt('leave', { r: 2, x: 4, y: 0 })" @click="leaveBar">
             {{ person.name?.trim() || "they" }} left the bar →
           </button>
-          <Doodle v-if="marks[4]" class="absolute -top-2 left-2" :seed="`${person.id}:4`" v-bind="marks[4]" />
-          <Doodle v-if="marks[7]" class="absolute -top-3 right-2" :seed="`${person.id}:7`" v-bind="marks[7]" />
+          <Doodle v-if="marks[4]" class="absolute -top-2 left-2" :seed="`${person.id}:4`" :animate="!settledPaperSlots.has('4')" v-bind="marks[4]" />
+          <Doodle v-if="marks[7]" class="absolute -top-3 right-2" :seed="`${person.id}:7`" :animate="!settledPaperSlots.has('7')" v-bind="marks[7]" />
         </div>
 
         <button

@@ -86,9 +86,83 @@ describe("mergeSessions", () => {
     expect(all.people.find((p) => p.id === "host").pinnedState).toBe("Pleasantly Relaxed");
   });
 
+  it("keeps the originating hour with the earliest session start", () => {
+    const a = { ...base(), startedHour: 1 };
+    const b = { ...base(), startedAt: "2026-09-24T19:00:00.000Z", startedHour: 23 };
+    expect(mergeSessions(a, b)).toMatchObject({ startedAt: b.startedAt, startedHour: 23 });
+    expect(mergeSessions(b, a)).toMatchObject({ startedAt: b.startedAt, startedHour: 23 });
+    const legacy = base();
+    expect(mergeSessions(legacy, legacy).startedHour).toBe(20);
+  });
+
+  it("preserves frozen paper metadata through newer legacy edits and converges hour backfills", () => {
+    const a = { ...base(), startedHour: 21, people: [person("host", { t: 1, by: "a" }, { name: "Sam", paperName: "Sam", paperInks: ["#111"] })] };
+    const b = { ...base(), startedHour: 2, people: [person("host", { t: 2, by: "b" }, { name: "Robin" })] };
+    const merged = mergeSessions(a, b);
+    expect(merged.people[0]).toMatchObject({ name: "Robin", paperName: "Sam", paperInks: ["#111"] });
+    expect(merged.startedHour).toBe(2);
+    expect(mergeSessions(b, a)).toEqual(merged);
+    expect(sessionFingerprint(merged)).not.toBe(sessionFingerprint(a));
+  });
+
   it("treats people saved before revs existed as oldest", () => {
     const legacy = { ...base(), people: [person("host", undefined, { name: "legacy" })] };
     const edited = { ...base(), people: [person("host", { t: 1, by: "d-a" }, { name: "edited" })] };
     expect(mergeSessions(legacy, edited).people[0].name).toBe("edited");
+  });
+
+  it("joins legacy name backfills associatively in every arrival order", () => {
+    const snapshots = ["Sam", "Sam", "Robin"].map((name, i) => ({ ...base(), people: [person("host", { t: i + 1, by: `d-${i}` }, { name })] }));
+    const permutations = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+    const expected = mergeSessions(mergeSessions(snapshots[0], snapshots[1]), snapshots[2]);
+    expect(expected.people[0]).toMatchObject({ name: "Robin", paperName: "Sam", paperNameBackfillRev: { t: 1, by: "d-0" } });
+    for (const order of permutations) {
+      const [a, b, c] = order.map((i) => snapshots[i]);
+      const left = mergeSessions(mergeSessions(a, b), c);
+      const right = mergeSessions(a, mergeSessions(b, c));
+      expect(left).toEqual(expected);
+      expect(right).toEqual(expected);
+      expect(sessionFingerprint(left)).toBe(sessionFingerprint(right));
+    }
+    const authoritative = { ...base(), people: [person("host", { t: 4, by: "new" }, { name: "Alex", paperName: "Zelda" })] };
+    expect(mergeSessions(expected, authoritative).people[0]).toMatchObject({ paperName: "Zelda", paperNameBackfillRev: undefined });
+    expect(mergeSessions(authoritative, expected)).toEqual(mergeSessions(expected, authoritative));
+    const blank = { ...base(), people: [person("host", { t: 0, by: "new" }, { name: "", paperName: "", needsIntro: true })] };
+    expect(mergeSessions(blank, snapshots[0]).people[0].paperName).toBe("Sam");
+  });
+
+  it("does not let a synthetic UTC hour override a captured hour during grouped merges", () => {
+    const a = base(), b = base(), c = { ...base(), startedHour: 23 };
+    const left = mergeSessions(mergeSessions(a, b), c);
+    const right = mergeSessions(a, mergeSessions(b, c));
+    expect(left.startedHour).toBe(23);
+    expect(left).toEqual(right);
+    expect(sessionFingerprint(left)).toBe(sessionFingerprint(right));
+  });
+
+  it("keeps the winning introduction's name independently of later display edits", () => {
+    const a = { ...base(), people: [person("host", { t: 1, by: "a" }, { name: "Alex", paperName: "Alex", paperNameRev: { t: 1, by: "a" } })] };
+    const b = { ...base(), people: [person("host", { t: 2, by: "b" }, { name: "Zoe", paperName: "Zoe", paperNameRev: { t: 2, by: "b" } })] };
+    expect(mergeSessions(a, b).people[0]).toMatchObject({ name: "Zoe", paperName: "Zoe", paperNameRev: { t: 2, by: "b" } });
+    const c = { ...a, people: [{ ...a.people[0], name: "Robin", rev: { t: 5, by: "a" } }] };
+    const expected = mergeSessions(mergeSessions(a, b), c);
+    expect(expected.people[0]).toMatchObject({ name: "Robin", paperName: "Zoe", paperNameRev: { t: 2, by: "b" } });
+    for (const [x, y, z] of [[a,b,c],[a,c,b],[b,a,c],[b,c,a],[c,a,b],[c,b,a]]) {
+      expect(mergeSessions(mergeSessions(x,y),z)).toEqual(expected);
+      expect(mergeSessions(x,mergeSessions(y,z))).toEqual(expected);
+    }
+  });
+
+  it("backfills inks before reduction and preserves captured inks through all groupings", () => {
+    const snapshots = ["#333", "#111", "#222"].map((color, i) => ({ ...base(), people: [person("host", { t: i + 1, by: "host" }, { color: "#999" }), person("friend", { t: i + 1, by: "peer" }, { color })] }));
+    const expected = mergeSessions(mergeSessions(snapshots[0], snapshots[1]), snapshots[2]);
+    expect(expected.people.find((p) => p.id === "host")).toMatchObject({ paperInks: ["#111"], paperInksBackfill: true });
+    for (const order of [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]]) {
+      const [a,b,c] = order.map((i) => snapshots[i]);
+      expect(mergeSessions(mergeSessions(a,b),c)).toEqual(expected);
+      expect(mergeSessions(a,mergeSessions(b,c))).toEqual(expected);
+    }
+    const captured = { ...base(), people: [person("host", { t: 0, by: "new" }, { paperInks: ["#fff"] })] };
+    expect(mergeSessions(expected,captured).people.find((p) => p.id === "host")).toMatchObject({ paperInks: ["#fff"], paperInksBackfill: undefined });
   });
 });

@@ -14,6 +14,12 @@ describe("the bar's library", () => {
     }
   });
 
+  it("always leads emergency lines with immediate help and keeps it when closing", () => {
+    for (const line of LINES.getHelp) expect(line).toMatch(/^call emergency services now\./);
+    expect(barTopics({ ...base, closing: true, bac: 0.35 })).toEqual([["getHelp", 1]]);
+    expect(LINES.easyNow.join(" ")).not.toMatch(/one more/);
+  });
+
   it("never jokes about driving", () => {
     for (const t of TOPICS) for (const line of LINES[t]) expect(line).not.toMatch(/\bdriv/i);
   });
@@ -25,7 +31,8 @@ describe("barTopics", () => {
   it("goes serious and exclusive past cut-off, closing, and in real danger", () => {
     expect(barTopics({ ...base, verdict: "CUT OFF", bac: 0.26 })).toEqual([["cutOff", 1]]);
     expect(barTopics({ ...base, bac: 0.36 })).toEqual([["getHelp", 1]]);
-    expect(barTopics({ ...base, closing: true, bac: 0.3 })).toEqual([["closing", 1]]);
+    expect(barTopics({ ...base, closing: true, bac: 0.3 })).toEqual([["cutOff", 1]]);
+    expect(barTopics({ ...base, closing: true })).toEqual([["closing", 1]]);
   });
 
   it("notices a fresh water, a first pour and a milestone", () => {
@@ -34,6 +41,16 @@ describe("barTopics", () => {
     expect(names({ ...base, pours: 1, sinceLastMin: 1 })).toContain("firstPour");
     expect(names({ ...base, pours: 5, sinceLastMin: 1 })).toContain("milestone");
     expect(names({ ...base, pours: 4, sinceLastMin: 1 })).not.toContain("milestone");
+  });
+
+  it("uses exact safety thresholds and never praises alcoholic custom water", () => {
+    for (const bac of [0.245, 0.2499]) expect(names({ ...base, bac, verdict: "SLOW DOWN" })).not.toContain("cutOff");
+    expect(barTopics({ ...base, bac: 0.25 })).toEqual([["cutOff", 1]]);
+    expect(barTopics({ ...base, bac: 0.3499 })).toEqual([["cutOff", 1]]);
+    expect(barTopics({ ...base, bac: 0.35 })).toEqual([["getHelp", 1]]);
+    const topics = names({ ...base, lastType: "water", lastIsCustom: true, lastIsSoft: false, sinceLastMin: 0 });
+    expect(topics).not.toContain("water");
+    expect(topics).toContain("house");
   });
 
   it("follows the pace verdict and the feeling", () => {
