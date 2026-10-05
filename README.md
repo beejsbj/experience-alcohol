@@ -6,7 +6,7 @@ A live drink tracker styled as a pile of paper receipts on a bar table. Log
 drinks with a tap, watch an estimated BAC drift in real time, and pin the vibe
 you want to hold tonight — the app times your next pour to keep you there.
 
-**Live:** https://experience-alcohol.vercel.app —
+**Live:** https://tipsy-tab.vercel.app —
 installable PWA, add it to your home screen.
 
 ## How it works
